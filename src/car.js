@@ -220,7 +220,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     //   frontHalfDepth = depth/2 + flipperDepth*cos(angle) (flipper at front)
     //   backHalfDepth  = depth/2 (back of body, no flipper)
     const halfW = width / 2 + wheelWidth;
-    const frontHalfDepth = depth / 2 + flipperDepth * Math.cos(flipperAngle);
+    const frontHalfDepth = depth / 2 + (hasFlipper ? flipperDepth * Math.cos(flipperAngle) : 0);
     const backHalfDepth = depth / 2;
 
     let maxX = -Infinity, minX = Infinity;
@@ -236,20 +236,6 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
         if (wz < minZ) minZ = wz;
       }
     }
-    const cosR = Math.abs(Math.cos(rotation));
-    const sinR = Math.abs(Math.sin(rotation));
-
-    // Effective half-extents include sub-components:
-    //   - wheels extend wheelWidth beyond each side of the body
-    //   - flipper projects flipperDepth * cos(angle) beyond the front of the body
-    const effectiveHalfWidth = width / 2 + wheelWidth;
-    const effectiveHalfDepth = depth / 2 + (hasFlipper ? flipperDepth * Math.cos(flipperAngle) : 0);
-
-    const halfExtentX = cosR * effectiveHalfWidth + sinR * effectiveHalfDepth;
-    const halfExtentZ = sinR * effectiveHalfWidth + cosR * effectiveHalfDepth;
-
-    const limitX = half - halfExtentX;
-    const limitZ = half - halfExtentZ;
 
     if (group.position.x + minX <= -half) {
       group.position.x = -half - minX;

@@ -473,15 +473,6 @@ describe('Car sub-component collision detection (wheels and flipper)', () => {
       // Old (buggy) code used symmetric depth 2.7 → limit = 22.3 → 22.5 > 22.3 → false bounce.
       const arenaSize = 50;
       const car = createCar({ x: 0, z: 22.5 });
-  describe('Flipper deselected collision', () => {
-    // When flipper is deselected, effectiveHalfDepth = depth/2 = 1.5 only (no flipper contribution)
-    // With arenaSize=50 (half=25): limitZ = 25 - 1.5 = 23.5
-
-    it('should not include flipper depth when flipper is deselected', () => {
-      // At z=-23: with flipper → bounces (limitZ=22.3); without flipper → no bounce (limitZ=23.5)
-      const arenaSize = 50;
-      const car = createCar({ x: 0, z: -23 });
-      car.applyCustomisation({ flipper: null });
       const result = car.bounceOffWalls(arenaSize);
       expect(result.bounced).toBe(false);
     });
@@ -490,11 +481,6 @@ describe('Car sub-component collision detection (wheels and flipper)', () => {
       // Car at z=23.6, rotation=0. Back at 23.6 + 1.5 = 25.1 — past south wall.
       const arenaSize = 50;
       const car = createCar({ x: 0, z: 23.6 });
-    it('should bounce using body-only depth when flipper is deselected', () => {
-      // At z=-23.8: body limitZ = 25 - 1.5 = 23.5 → should bounce even without flipper
-      const arenaSize = 50;
-      const car = createCar({ x: 0, z: -23.8 });
-      car.applyCustomisation({ flipper: null });
       const result = car.bounceOffWalls(arenaSize);
       expect(result.bounced).toBe(true);
     });
@@ -529,6 +515,31 @@ describe('Car sub-component collision detection (wheels and flipper)', () => {
       car.bounceOffWalls(arenaSize);
       // Back of car (at car.z - backHalfDepth when rotation=π) sits at north wall
       expect(car.group.position.z - backHalfDepth).toBeCloseTo(-half, 5);
+    });
+  });
+
+  describe('Flipper deselected collision', () => {
+    // When flipper is deselected, effectiveHalfDepth = depth/2 = 1.5 only (no flipper contribution)
+    // With arenaSize=50 (half=25): limitZ = 25 - 1.5 = 23.5
+
+    it('should not include flipper depth when flipper is deselected', () => {
+      // At z=-23: with flipper → bounces (limitZ=22.3); without flipper → no bounce (limitZ=23.5)
+      const arenaSize = 50;
+      const car = createCar({ x: 0, z: -23 });
+      car.applyCustomisation({ flipper: null });
+      const result = car.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(false);
+    });
+
+    it('should bounce using body-only depth when flipper is deselected', () => {
+      // At z=-23.8: body limitZ = 25 - 1.5 = 23.5 → should bounce even without flipper
+      const arenaSize = 50;
+      const car = createCar({ x: 0, z: -23.8 });
+      car.applyCustomisation({ flipper: null });
+      const result = car.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(true);
+    });
+
     it('should restore flipper collision depth when flipper is re-selected', () => {
       // At z=-23: no bounce when flipper absent, but should bounce once flipper is re-selected
       const arenaSize = 50;

@@ -231,13 +231,15 @@ describe('Robot', () => {
       expect(robot.velocity.x).toBeCloseTo(5, 5);
       expect(robot.velocity.z).toBeCloseTo(0, 5);
     });
-  it('should retain horizontal velocity across updates (no friction)', () => {
+  });
+
+  it('should apply friction to horizontal velocity on each update', () => {
     const robot = createRobot({ x: 0, z: 0 });
     robot.velocity.x = 5;
     robot.velocity.z = 3;
     robot.update(0.1);
-    // Horizontal velocity should not decay (robot has no friction)
-    expect(robot.velocity.x).toBe(5);
-    expect(robot.velocity.z).toBe(3);
+    // Horizontal velocity should decay due to friction (0.98)
+    expect(robot.velocity.x).toBeCloseTo(5 * 0.98, 5);
+    expect(robot.velocity.z).toBeCloseTo(3 * 0.98, 5);
   });
 });
