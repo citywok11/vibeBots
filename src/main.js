@@ -109,16 +109,32 @@ function gameLoop(time) {
   }
 
   // Resolve collision between player car and dummy robot
-  const collided = resolveCollision(
-    { position: car.group.position, velocity: car.velocity, mass: car.mass, collisionRadius: car.collisionRadius },
-    { position: robot.group.position, velocity: robot.velocity, mass: robot.mass, collisionRadius: robot.collisionRadius }
+  const collisionResult = resolveCollision(
+    {
+      position: car.group.position, velocity: car.velocity, mass: car.mass,
+      collisionRadius: car.collisionRadius, rotation: car.rotation,
+      bodyWidth: 2, bodyDepth: 3,
+    },
+    {
+      position: robot.group.position, velocity: robot.velocity, mass: robot.mass,
+      collisionRadius: robot.collisionRadius, rotation: robot.group.rotation.y,
+      bodyWidth: 2, bodyDepth: 3,
+    }
   );
 
-  if (collided) {
-    const dx = robot.group.position.x - car.group.position.x;
-    const dz = robot.group.position.z - car.group.position.z;
-    const dist = Math.sqrt(dx * dx + dz * dz);
-    robot.applyCollisionFriction(dx / dist, dz / dist);
+  if (collisionResult) {
+    const { angularImpulseA, angularImpulseB, impactNormal, impactSpeed } = collisionResult;
+
+    // Apply yaw spin to both vehicles
+    car.applyAngularImpulse(angularImpulseA);
+    robot.applyAngularImpulse(angularImpulseB);
+
+    // Apply pitch/roll tilt based on impact direction and speed
+    car.applyImpactTilt(-impactNormal.x, -impactNormal.z, impactSpeed);
+    robot.applyImpactTilt(impactNormal.x, impactNormal.z, impactSpeed);
+
+    // Existing lateral friction on the robot
+    robot.applyCollisionFriction(impactNormal.x, impactNormal.z);
   }
 
   // Camera follows car

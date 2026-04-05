@@ -242,4 +242,109 @@ describe('Robot', () => {
     expect(robot.velocity.x).toBeCloseTo(5 * 0.98, 5);
     expect(robot.velocity.z).toBeCloseTo(3 * 0.98, 5);
   });
+
+  describe('angular velocity (yaw spin from collisions)', () => {
+    it('should expose an angularVelocity property starting at zero', () => {
+      const robot = createRobot();
+      expect(robot.angularVelocity).toBe(0);
+    });
+
+    it('should expose an applyAngularImpulse method', () => {
+      const robot = createRobot();
+      expect(typeof robot.applyAngularImpulse).toBe('function');
+    });
+
+    it('should change angularVelocity when applyAngularImpulse is called', () => {
+      const robot = createRobot();
+      robot.applyAngularImpulse(3);
+      expect(robot.angularVelocity).toBe(3);
+    });
+
+    it('should rotate the robot over time based on angularVelocity', () => {
+      const robot = createRobot();
+      const rotBefore = robot.group.rotation.y;
+      robot.applyAngularImpulse(5);
+      robot.update(0.1);
+      expect(robot.group.rotation.y).not.toBe(rotBefore);
+    });
+
+    it('should apply angular friction so angularVelocity decays over time', () => {
+      const robot = createRobot();
+      robot.applyAngularImpulse(5);
+      robot.update(0.1);
+      expect(robot.angularVelocity).toBeLessThan(5);
+      expect(robot.angularVelocity).toBeGreaterThan(0);
+    });
+
+    it('should eventually stop spinning', () => {
+      const robot = createRobot();
+      robot.applyAngularImpulse(2);
+      for (let i = 0; i < 200; i++) robot.update(0.016);
+      expect(robot.angularVelocity).toBe(0);
+    });
+
+    it('should reset angularVelocity on reset()', () => {
+      const robot = createRobot();
+      robot.applyAngularImpulse(5);
+      robot.update(0.1);
+      robot.reset();
+      expect(robot.angularVelocity).toBe(0);
+    });
+  });
+
+  describe('collision tilt (pitch and roll)', () => {
+    it('should expose pitchTilt and rollTilt properties starting at zero', () => {
+      const robot = createRobot();
+      expect(robot.pitchTilt).toBe(0);
+      expect(robot.rollTilt).toBe(0);
+    });
+
+    it('should expose an applyImpactTilt method', () => {
+      const robot = createRobot();
+      expect(typeof robot.applyImpactTilt).toBe('function');
+    });
+
+    it('should set pitchTilt when hit from the front', () => {
+      const robot = createRobot();
+      robot.applyImpactTilt(0, 1, 5);
+      expect(robot.pitchTilt).not.toBe(0);
+    });
+
+    it('should set rollTilt when hit from the side', () => {
+      const robot = createRobot();
+      robot.applyImpactTilt(-1, 0, 5);
+      expect(robot.rollTilt).not.toBe(0);
+    });
+
+    it('should clamp tilt to maximum value', () => {
+      const robot = createRobot();
+      robot.applyImpactTilt(1, 0, 1000);
+      expect(Math.abs(robot.rollTilt)).toBeLessThanOrEqual(0.3 + 0.001);
+      expect(Math.abs(robot.pitchTilt)).toBeLessThanOrEqual(0.3 + 0.001);
+    });
+
+    it('should decay tilt back to zero over time', () => {
+      const robot = createRobot();
+      robot.applyImpactTilt(1, 1, 5);
+      const pitchBefore = Math.abs(robot.pitchTilt);
+      robot.update(0.1);
+      expect(Math.abs(robot.pitchTilt)).toBeLessThan(pitchBefore);
+    });
+
+    it('should fully decay tilt to zero after enough time', () => {
+      const robot = createRobot();
+      robot.applyImpactTilt(1, 1, 5);
+      for (let i = 0; i < 200; i++) robot.update(0.016);
+      expect(robot.pitchTilt).toBe(0);
+      expect(robot.rollTilt).toBe(0);
+    });
+
+    it('should reset pitchTilt and rollTilt on reset()', () => {
+      const robot = createRobot();
+      robot.applyImpactTilt(1, 1, 5);
+      robot.reset();
+      expect(robot.pitchTilt).toBe(0);
+      expect(robot.rollTilt).toBe(0);
+    });
+  });
 });

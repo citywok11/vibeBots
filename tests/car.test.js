@@ -948,3 +948,132 @@ describe('Car applyCustomisation()', () => {
     });
   });
 });
+
+describe('Car angular velocity (yaw spin from collisions)', () => {
+  it('should expose an angularVelocity property starting at zero', () => {
+    const car = createCar();
+    expect(car.angularVelocity).toBe(0);
+  });
+
+  it('should expose an applyAngularImpulse method', () => {
+    const car = createCar();
+    expect(typeof car.applyAngularImpulse).toBe('function');
+  });
+
+  it('should change angularVelocity when applyAngularImpulse is called', () => {
+    const car = createCar();
+    car.applyAngularImpulse(2);
+    expect(car.angularVelocity).toBe(2);
+  });
+
+  it('should accumulate angular impulses', () => {
+    const car = createCar();
+    car.applyAngularImpulse(1);
+    car.applyAngularImpulse(0.5);
+    expect(car.angularVelocity).toBeCloseTo(1.5);
+  });
+
+  it('should rotate the car over time based on angularVelocity', () => {
+    const car = createCar();
+    car.applyAngularImpulse(5);
+    const rotBefore = car.rotation;
+    car.update(0.1);
+    expect(car.rotation).not.toBe(rotBefore);
+  });
+
+  it('should apply angular friction so angularVelocity decays over time', () => {
+    const car = createCar();
+    car.applyAngularImpulse(5);
+    car.update(0.1);
+    expect(car.angularVelocity).toBeLessThan(5);
+    expect(car.angularVelocity).toBeGreaterThan(0);
+  });
+
+  it('should eventually stop spinning (angular velocity decays to zero)', () => {
+    const car = createCar();
+    car.applyAngularImpulse(2);
+    for (let i = 0; i < 200; i++) car.update(0.016);
+    expect(car.angularVelocity).toBe(0);
+  });
+
+  it('should reset angularVelocity on reset()', () => {
+    const car = createCar();
+    car.applyAngularImpulse(5);
+    car.update(0.1);
+    car.reset();
+    expect(car.angularVelocity).toBe(0);
+  });
+});
+
+describe('Car collision tilt (pitch and roll)', () => {
+  it('should expose pitchTilt and rollTilt properties starting at zero', () => {
+    const car = createCar();
+    expect(car.pitchTilt).toBe(0);
+    expect(car.rollTilt).toBe(0);
+  });
+
+  it('should expose an applyImpactTilt method', () => {
+    const car = createCar();
+    expect(typeof car.applyImpactTilt).toBe('function');
+  });
+
+  it('should set pitchTilt when hit from the front (negative Z in local frame)', () => {
+    const car = createCar();
+    // Hit from the front: normal pointing toward car = (0, 1) in world with rotation 0
+    car.applyImpactTilt(0, 1, 5);
+    expect(car.pitchTilt).not.toBe(0);
+  });
+
+  it('should set rollTilt when hit from the side', () => {
+    const car = createCar();
+    // Hit from the right side: normal pointing toward car = (-1, 0)
+    car.applyImpactTilt(-1, 0, 5);
+    expect(car.rollTilt).not.toBe(0);
+  });
+
+  it('should clamp tilt to maximum value', () => {
+    const car = createCar();
+    car.applyImpactTilt(1, 0, 1000);
+    expect(Math.abs(car.rollTilt)).toBeLessThanOrEqual(0.3 + 0.001);
+    expect(Math.abs(car.pitchTilt)).toBeLessThanOrEqual(0.3 + 0.001);
+  });
+
+  it('should decay tilt back to zero over time', () => {
+    const car = createCar();
+    car.applyImpactTilt(1, 1, 5);
+    const pitchBefore = Math.abs(car.pitchTilt);
+    car.update(0.1);
+    expect(Math.abs(car.pitchTilt)).toBeLessThan(pitchBefore);
+  });
+
+  it('should fully decay tilt to zero after enough time', () => {
+    const car = createCar();
+    car.applyImpactTilt(1, 1, 5);
+    for (let i = 0; i < 200; i++) car.update(0.016);
+    expect(car.pitchTilt).toBe(0);
+    expect(car.rollTilt).toBe(0);
+  });
+
+  it('should reset pitchTilt and rollTilt on reset()', () => {
+    const car = createCar();
+    car.applyImpactTilt(1, 1, 5);
+    car.reset();
+    expect(car.pitchTilt).toBe(0);
+    expect(car.rollTilt).toBe(0);
+  });
+
+  it('should apply tilt relative to car rotation', () => {
+    // Car rotated 90 degrees: a world-space X hit should now affect pitch, not roll
+    const car1 = createCar();
+    car1.applyImpactTilt(1, 0, 5); // side hit → roll
+    const roll1 = car1.rollTilt;
+
+    const car2 = createCar();
+    car2.turnLeft(Math.PI / 2); // rotate 90°
+    car2.applyImpactTilt(1, 0, 5); // same world-space hit, but now it's a front hit in local frame
+    const roll2 = car2.rollTilt;
+
+    // car1 should have more roll than car2 (car2's hit went to pitch instead)
+    expect(Math.abs(roll1)).toBeGreaterThan(Math.abs(roll2));
+  });
+});

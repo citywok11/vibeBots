@@ -17,10 +17,10 @@ describe('resolveCollision', () => {
     expect(resolveCollision(a, b)).toBe(false);
   });
 
-  it('returns true when objects are overlapping and moving toward each other', () => {
+  it('returns truthy result object when objects are overlapping and moving toward each other', () => {
     const a = makeObj(0, 0, 5, 0);
     const b = makeObj(2, 0, 0, 0);
-    expect(resolveCollision(a, b)).toBe(true);
+    expect(resolveCollision(a, b)).toBeTruthy();
   });
 
   it('transfers velocity from moving car to static robot', () => {
@@ -97,7 +97,7 @@ describe('resolveCollision', () => {
     const a = makeObj(0, 0, 4, 4);
     const b = makeObj(2, 2, 0, 0);
     const result = resolveCollision(a, b);
-    expect(result).toBe(true);
+    expect(result).toBeTruthy();
     const speedBAfter = Math.sqrt(b.velocity.x ** 2 + b.velocity.z ** 2);
     expect(speedBAfter).toBeGreaterThan(0);
   });
@@ -126,5 +126,74 @@ describe('resolveCollision', () => {
     const b = makeObj(3, 0, 0, 0, 1, 1.5);
     const result = resolveCollision(a, b);
     expect(result).toBe(false);
+  });
+
+  describe('collision result object', () => {
+    it('returns an object with angular impulse properties when collision occurs', () => {
+      const a = makeObj(0, 0, 5, 0);
+      const b = makeObj(2, 0, 0, 0);
+      const result = resolveCollision(a, b);
+      expect(result).toBeTruthy();
+      expect(typeof result.angularImpulseA).toBe('number');
+      expect(typeof result.angularImpulseB).toBe('number');
+    });
+
+    it('returns impact normal pointing from a to b', () => {
+      const a = makeObj(0, 0, 5, 0);
+      const b = makeObj(2, 0, 0, 0);
+      const result = resolveCollision(a, b);
+      expect(result.impactNormal.x).toBeGreaterThan(0); // b is to the right of a
+      expect(result.impactNormal.z).toBeCloseTo(0, 5);
+    });
+
+    it('returns impact speed', () => {
+      const a = makeObj(0, 0, 5, 0);
+      const b = makeObj(2, 0, 0, 0);
+      const result = resolveCollision(a, b);
+      expect(result.impactSpeed).toBeGreaterThan(0);
+    });
+
+    it('returns a contact point between the two objects', () => {
+      const a = makeObj(0, 0, 5, 0);
+      const b = makeObj(2, 0, 0, 0);
+      const result = resolveCollision(a, b);
+      expect(result.contactPoint).toBeDefined();
+      // Contact point should be between the two objects
+      expect(result.contactPoint.x).toBeGreaterThanOrEqual(Math.min(a.position.x, b.position.x));
+      expect(result.contactPoint.x).toBeLessThanOrEqual(Math.max(a.position.x, b.position.x));
+    });
+
+    it('produces zero angular impulse for a perfectly head-on symmetric collision', () => {
+      // Head-on along X: contact point is on the line between centres
+      // Both objects have same mass and same radius → lever arm is along normal → cross product is zero
+      const a = makeObj(0, 0, 5, 0, 1, 1.5);
+      const b = makeObj(2, 0, -5, 0, 1, 1.5);
+      const result = resolveCollision(a, b);
+      expect(result.angularImpulseA).toBeCloseTo(0, 3);
+      expect(result.angularImpulseB).toBeCloseTo(0, 3);
+    });
+
+    it('produces non-zero angular impulse for an off-centre collision', () => {
+      // Object a hits b at an angle; b is an oriented rectangle so the
+      // surface contact point is offset from the centre-to-centre line.
+      const a = makeObj(0, 0, 5, 5, 1, 1.5);
+      Object.assign(a, { rotation: 0, bodyWidth: 2, bodyDepth: 3 });
+      const b = makeObj(1, 1, 0, 0, 1, 1.5);
+      Object.assign(b, { rotation: 0, bodyWidth: 2, bodyDepth: 3 });
+      const result = resolveCollision(a, b);
+      // At least one should have non-zero angular impulse
+      const totalAngular = Math.abs(result.angularImpulseA) + Math.abs(result.angularImpulseB);
+      expect(totalAngular).toBeGreaterThan(0);
+    });
+
+    it('heavier object receives less angular impulse than lighter object', () => {
+      const a = makeObj(0, 0, 5, 3, 1, 1.5);
+      Object.assign(a, { rotation: 0, bodyWidth: 2, bodyDepth: 3 });
+      const b = makeObj(1.5, 1, 0, 0, 5, 1.5);
+      Object.assign(b, { rotation: 0, bodyWidth: 2, bodyDepth: 3 });
+      const result = resolveCollision(a, b);
+      // Heavier object (b) should have smaller angular impulse magnitude
+      expect(Math.abs(result.angularImpulseB)).toBeLessThan(Math.abs(result.angularImpulseA));
+    });
   });
 });

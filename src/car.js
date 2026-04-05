@@ -144,6 +144,13 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   const collisionRadius = Math.sqrt((width / 2) ** 2 + (depth / 2) ** 2);
   let hasWheels = true;
   let hasFlipper = true;
+  let angularVelocity = 0;
+
+  // Pitch and roll tilt from collision impacts (visual only)
+  const TILT_DECAY = 8;    // how fast tilt returns to zero (per second)
+  const TILT_MAX = 0.3;    // max tilt in radians (~17 degrees)
+  let pitchTilt = 0;       // rotation around X axis (forward/back rock)
+  let rollTilt = 0;        // rotation around Z axis (side-to-side rock)
 
   function applyCustomisation(selections = {}) {
     if ('model' in selections) {
@@ -172,8 +179,13 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     group.position.set(startPos.x, groupY, startPos.z);
     rotation = 0;
     group.rotation.y = 0;
+    group.rotation.x = 0;
+    group.rotation.z = 0;
     velocity.x = 0;
     velocity.z = 0;
+    angularVelocity = 0;
+    pitchTilt = 0;
+    rollTilt = 0;
     hasWheels = true;
     flipperAngle = 0;
     flipperActive = false;
@@ -266,6 +278,21 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     velocity.x *= FRICTION;
     velocity.z *= FRICTION;
 
+    // Apply angular velocity (yaw spin from collisions)
+    const ANGULAR_FRICTION = 0.95;
+    rotation += angularVelocity * dt;
+    angularVelocity *= ANGULAR_FRICTION;
+    if (Math.abs(angularVelocity) < 0.01) angularVelocity = 0;
+
+    // Decay pitch and roll tilt back to zero
+    pitchTilt *= Math.max(0, 1 - TILT_DECAY * dt);
+    rollTilt *= Math.max(0, 1 - TILT_DECAY * dt);
+    if (Math.abs(pitchTilt) < 0.001) pitchTilt = 0;
+    if (Math.abs(rollTilt) < 0.001) rollTilt = 0;
+
+    // Apply all rotations to the group
+    group.rotation.set(pitchTilt, rotation, rollTilt);
+
     // Flipper animation
     if (flipperActive) {
       flipperAngle += FLIPPER_UP_SPEED * dt;
@@ -304,6 +331,41 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     }
   }
 
+  /**
+   * Applies a yaw angular impulse from a collision.
+   * @param {number} impulse - Angular velocity change in radians/s
+   */
+  function applyAngularImpulse(impulse) {
+    angularVelocity += impulse;
+  }
+
+  /**
+   * Applies a visual pitch and roll tilt based on the collision impact direction.
+   * The tilt is relative to the car's local frame: a hit from the front/back
+   * produces pitch, a hit from the side produces roll.
+   *
+   * @param {number} nx - X component of collision normal (world space)
+   * @param {number} nz - Z component of collision normal (world space)
+   * @param {number} speed - Impact speed (scales tilt magnitude)
+   */
+  function applyImpactTilt(nx, nz, speed) {
+    const TILT_SCALE = 0.04; // how much tilt per unit of impact speed
+
+    // Transform the world-space impact normal into the car's local frame
+    const cosR = Math.cos(rotation);
+    const sinR = Math.sin(rotation);
+    const localX = nx * cosR - nz * sinR;
+    const localZ = nx * sinR + nz * cosR;
+
+    // localZ → pitch (hit from front/back rocks forward/back)
+    // localX → roll (hit from left/right rocks side to side)
+    const rawPitch = -localZ * speed * TILT_SCALE;
+    const rawRoll = localX * speed * TILT_SCALE;
+
+    pitchTilt = Math.max(-TILT_MAX, Math.min(TILT_MAX, pitchTilt + rawPitch));
+    rollTilt = Math.max(-TILT_MAX, Math.min(TILT_MAX, rollTilt + rawRoll));
+  }
+
   return {
     group,
     mesh: body,
@@ -318,6 +380,9 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     get rotation() { return rotation; },
     get velocity() { return velocity; },
     get mass() { return mass; },
+    get angularVelocity() { return angularVelocity; },
+    get pitchTilt() { return pitchTilt; },
+    get rollTilt() { return rollTilt; },
     collisionRadius,
     accelerate,
     activateFlipper,
@@ -329,5 +394,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     update,
     reset,
     applyCustomisation,
+    applyAngularImpulse,
+    applyImpactTilt,
   };
 }

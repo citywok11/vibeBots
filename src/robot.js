@@ -55,12 +55,23 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
 
   const velocity = { x: 0, z: 0 };
   let velocityY = 0;
+  let angularVelocity = 0;
+
+  // Pitch and roll tilt from collision impacts (visual only)
+  const TILT_DECAY = 8;
+  const TILT_MAX = 0.3;
+  let pitchTilt = 0;
+  let rollTilt = 0;
 
   function reset() {
     group.position.set(startPos.x, groupY, startPos.z);
     velocity.x = 0;
     velocity.z = 0;
     velocityY = 0;
+    angularVelocity = 0;
+    pitchTilt = 0;
+    rollTilt = 0;
+    group.rotation.set(0, 0, 0);
   }
 
   function bounceOffWalls(arenaSize) {
@@ -108,6 +119,22 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
     }
     velocity.x *= FRICTION;
     velocity.z *= FRICTION;
+
+    // Apply angular velocity (yaw spin from collisions)
+    const ANGULAR_FRICTION = 0.95;
+    group.rotation.y += angularVelocity * dt;
+    angularVelocity *= ANGULAR_FRICTION;
+    if (Math.abs(angularVelocity) < 0.01) angularVelocity = 0;
+
+    // Decay pitch and roll tilt back to zero
+    pitchTilt *= Math.max(0, 1 - TILT_DECAY * dt);
+    rollTilt *= Math.max(0, 1 - TILT_DECAY * dt);
+    if (Math.abs(pitchTilt) < 0.001) pitchTilt = 0;
+    if (Math.abs(rollTilt) < 0.001) rollTilt = 0;
+
+    // Apply pitch and roll (preserve yaw)
+    const yaw = group.rotation.y;
+    group.rotation.set(pitchTilt, yaw, rollTilt);
   }
 
   /**
@@ -144,6 +171,37 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
     velocity.z = vfz + vlz * lateralDamping;
   }
 
+  /**
+   * Applies a yaw angular impulse from a collision.
+   * @param {number} impulse - Angular velocity change in radians/s
+   */
+  function applyAngularImpulse(impulse) {
+    angularVelocity += impulse;
+  }
+
+  /**
+   * Applies a visual pitch and roll tilt based on the collision impact direction.
+   *
+   * @param {number} nx - X component of collision normal (world space)
+   * @param {number} nz - Z component of collision normal (world space)
+   * @param {number} speed - Impact speed (scales tilt magnitude)
+   */
+  function applyImpactTilt(nx, nz, speed) {
+    const TILT_SCALE = 0.04;
+
+    const angle = group.rotation.y;
+    const cosR = Math.cos(angle);
+    const sinR = Math.sin(angle);
+    const localX = nx * cosR - nz * sinR;
+    const localZ = nx * sinR + nz * cosR;
+
+    const rawPitch = -localZ * speed * TILT_SCALE;
+    const rawRoll = localX * speed * TILT_SCALE;
+
+    pitchTilt = Math.max(-TILT_MAX, Math.min(TILT_MAX, pitchTilt + rawPitch));
+    rollTilt = Math.max(-TILT_MAX, Math.min(TILT_MAX, rollTilt + rawRoll));
+  }
+
   return {
     group,
     mesh: body,
@@ -153,9 +211,14 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
     get velocityY() { return velocityY; },
     set velocityY(v) { velocityY = v; },
     get groundY() { return groupY; },
+    get angularVelocity() { return angularVelocity; },
+    get pitchTilt() { return pitchTilt; },
+    get rollTilt() { return rollTilt; },
     bounceOffWalls,
     update,
     applyCollisionFriction,
+    applyAngularImpulse,
+    applyImpactTilt,
     reset,
   };
 }
