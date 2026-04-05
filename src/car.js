@@ -22,9 +22,9 @@ export const MODEL_CATALOGUE = [
 ];
 
 export const WHEEL_CATALOGUE = [
-  { id: 'standard', label: 'Standard', radius: 0.6,  friction: 0.980, velocityMult: 1.0,  color: 0x222222 },
-  { id: 'offroad',  label: 'Off-Road', radius: 0.75, friction: 0.970, velocityMult: 0.85, color: 0x2a3a1a },
-  { id: 'racing',   label: 'Racing',   radius: 0.45, friction: 0.993, velocityMult: 1.2,  color: 0xaaaa00 },
+  { id: 'standard', label: 'Standard', radius: 0.6,  friction: 0.980, velocityMult: 1.0,  lateralGrip: 0.85, color: 0x222222 },
+  { id: 'offroad',  label: 'Off-Road', radius: 0.75, friction: 0.970, velocityMult: 0.85, lateralGrip: 0.92, color: 0x2a3a1a },
+  { id: 'racing',   label: 'Racing',   radius: 0.45, friction: 0.993, velocityMult: 1.2,  lateralGrip: 0.75, color: 0xaaaa00 },
 ];
 
 export const FLIPPER_CATALOGUE = [
@@ -353,6 +353,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   let currentVelocityMult = 1.0;
   let currentWheelWidth = wheelWidth;
   let currentWheelRadius = wheelRadius;
+  let currentLateralGrip = WHEEL_CATALOGUE[0].lateralGrip;
   let currentFlipperPower = FLIPPER_CATALOGUE[0].power;
   let currentFlipperMaxAngle = FLIPPER_CATALOGUE[0].maxAngle;
   let currentFlipperUpSpeed = FLIPPER_CATALOGUE[0].upSpeed;
@@ -382,10 +383,12 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
           currentVelocityMult = spec.velocityMult;
           currentWheelWidth = spec.radius * 0.5;
           currentWheelRadius = spec.radius;
+          currentLateralGrip = spec.lateralGrip;
         }
       } else {
         currentFriction = FRICTION;
         currentVelocityMult = 1.0;
+        currentLateralGrip = WHEEL_CATALOGUE[0].lateralGrip;
       }
     }
     if ('flipper' in selections) {
@@ -569,6 +572,21 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     }
 
     const airborne = group.position.y > groupY + 0.01;
+
+    // Lateral grip — wheels roll freely along the heading but resist sideways sliding.
+    // Only active while grounded (no traction in the air).
+    if (!airborne) {
+      const fwdGripX = -Math.sin(rotation);
+      const fwdGripZ = -Math.cos(rotation);
+      // Project velocity onto the forward axis
+      const vForward = velocity.x * fwdGripX + velocity.z * fwdGripZ;
+      // Lateral component = total - forward projection
+      const latX = velocity.x - vForward * fwdGripX;
+      const latZ = velocity.z - vForward * fwdGripZ;
+      // Damp lateral component each frame
+      velocity.x = vForward * fwdGripX + latX * (1 - currentLateralGrip);
+      velocity.z = vForward * fwdGripZ + latZ * (1 - currentLateralGrip);
+    }
 
     // Apply angular velocity (yaw spin from collisions)
     const ANGULAR_FRICTION = 0.95;

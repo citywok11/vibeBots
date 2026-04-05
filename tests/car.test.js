@@ -1315,7 +1315,7 @@ describe('Component catalogues', () => {
     expect(WHEEL_CATALOGUE.length).toBeGreaterThanOrEqual(3);
   });
 
-  it('every WHEEL_CATALOGUE entry should have id, label, radius, friction, velocityMult, color', () => {
+  it('every WHEEL_CATALOGUE entry should have id, label, radius, friction, velocityMult, lateralGrip, color', () => {
     WHEEL_CATALOGUE.forEach(spec => {
       expect(typeof spec.id).toBe('string');
       expect(typeof spec.label).toBe('string');
@@ -1323,6 +1323,9 @@ describe('Component catalogues', () => {
       expect(spec.radius).toBeGreaterThan(0);
       expect(typeof spec.friction).toBe('number');
       expect(typeof spec.velocityMult).toBe('number');
+      expect(typeof spec.lateralGrip).toBe('number');
+      expect(spec.lateralGrip).toBeGreaterThan(0);
+      expect(spec.lateralGrip).toBeLessThanOrEqual(1);
     });
   });
 
@@ -1611,5 +1614,85 @@ describe('Car flipper variant physics', () => {
     const lightAngle = carLight.flipperAngle;
 
     expect(lightAngle).toBeGreaterThan(stdAngle);
+  });
+
+  describe('lateral grip (anti-slide)', () => {
+    it('should damp sideways velocity relative to heading each frame', () => {
+      const car = createCar();
+      // Default heading (rotation=0) → forward is (0, -1) in XZ
+      // Give the car pure lateral velocity (along +x)
+      car.velocity.x = 10;
+      car.velocity.z = 0;
+      car.update(1 / 60);
+      // After one frame, lateral component should be significantly reduced
+      // compared to what plain friction (0.98) alone would give
+      const plainFrictionResult = 10 * 0.98;
+      expect(Math.abs(car.velocity.x)).toBeLessThan(plainFrictionResult);
+    });
+
+    it('should not damp forward velocity (along the heading)', () => {
+      const car = createCar();
+      // Heading default → forward is (0, -1). Give pure forward velocity.
+      car.velocity.x = 0;
+      car.velocity.z = -10;
+      car.update(1 / 60);
+      // Forward velocity should only be affected by normal friction, not lateral grip
+      const expected = -10 * 0.98;
+      expect(car.velocity.z).toBeCloseTo(expected, 2);
+    });
+
+    it('should make the car track its heading when turning', () => {
+      const car = createCar();
+      // Push the car forward along its default heading (-Z)
+      car.accelerate(20);
+      car.update(1 / 60);
+      // Now turn 90° and keep driving
+      car.turnRight(Math.PI / 2);
+      for (let i = 0; i < 60; i++) {
+        car.accelerate(5);
+        car.update(1 / 60);
+      }
+      // After turning and gripping, most velocity should be along the new heading
+      const speed = Math.sqrt(car.velocity.x ** 2 + car.velocity.z ** 2);
+      if (speed > 0.1) {
+        // New heading after turning right by PI/2 from 0: rotation = -PI/2
+        // forward = (-sin(-PI/2), -cos(-PI/2)) = (1, 0)... but we use car.rotation
+        const fwdX = -Math.sin(car.rotation);
+        const fwdZ = -Math.cos(car.rotation);
+        const forwardFraction = (car.velocity.x * fwdX + car.velocity.z * fwdZ) / speed;
+        expect(forwardFraction).toBeGreaterThan(0.7);
+      }
+    });
+
+    it('should not apply lateral grip while airborne', () => {
+      const car = createCar();
+      // Launch the car into the air
+      car.velocityY = 10;
+      car.update(1 / 60); // now airborne
+      // Give pure lateral velocity
+      car.velocity.x = 10;
+      car.velocity.z = 0;
+      const before = car.velocity.x;
+      car.update(1 / 60);
+      // Should only lose normal friction, not lateral grip
+      const expected = before * 0.98; // standard wheel friction
+      expect(car.velocity.x).toBeCloseTo(expected, 2);
+    });
+
+    it('offroad wheels should have stronger lateral grip than racing wheels', () => {
+      // Give both cars the same pure-lateral velocity and compare after one frame
+      const carOffroad = createCar();
+      carOffroad.applyCustomisation({ wheels: 'offroad' });
+      carOffroad.velocity.x = 10;
+      carOffroad.update(1 / 60);
+
+      const carRacing = createCar();
+      carRacing.applyCustomisation({ wheels: 'racing' });
+      carRacing.velocity.x = 10;
+      carRacing.update(1 / 60);
+
+      // Offroad should have killed more lateral velocity
+      expect(Math.abs(carOffroad.velocity.x)).toBeLessThan(Math.abs(carRacing.velocity.x));
+    });
   });
 });

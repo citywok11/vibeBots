@@ -7,6 +7,7 @@ export const ROBOT_BODY_WIDTH = 2;
 export const ROBOT_BODY_DEPTH = 3;
 const FRICTION = 0.98;
 const COLLISION_LATERAL_FRICTION = 0.8;
+const LATERAL_GRIP = 0.85; // per-frame damping on sideways velocity (wheel grip)
 const SPOKE_COUNT = 4;
 const SPOKE_COLOR = 0x888888;
 const AXLE_GAP = 0.3;
@@ -204,6 +205,22 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
 
     const airborne = group.position.y > groupY + 0.01;
 
+    // Lateral grip — wheels roll freely along the heading but resist sideways sliding.
+    // Only active while grounded (no traction in the air).
+    if (!airborne) {
+      const angle = group.rotation.y;
+      const fwdX = Math.sin(angle);
+      const fwdZ = -Math.cos(angle);
+      // Project velocity onto the forward axis
+      const vForward = velocity.x * fwdX + velocity.z * fwdZ;
+      // Lateral component = total - forward projection
+      const latX = velocity.x - vForward * fwdX;
+      const latZ = velocity.z - vForward * fwdZ;
+      // Damp lateral component each frame
+      velocity.x = vForward * fwdX + latX * (1 - LATERAL_GRIP);
+      velocity.z = vForward * fwdZ + latZ * (1 - LATERAL_GRIP);
+    }
+
     // Apply angular velocity (yaw spin from collisions)
     const ANGULAR_FRICTION = 0.95;
     group.rotation.y += angularVelocity * dt;
@@ -338,18 +355,17 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
       group.rotation.y += Math.sign(angleDiff) * maxTurn;
     }
 
-    // Accelerate in the forward direction up to AI_SPEED
+    // Accelerate along the forward axis only, capping forward speed.
+    // Lateral momentum is left untouched — the per-frame lateral grip
+    // in update() will bleed it off naturally, giving the robot a
+    // realistic turning arc instead of instant redirection.
     const forwardX = Math.sin(group.rotation.y);
     const forwardZ = -Math.cos(group.rotation.y);
-    const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
-    if (speed < AI_SPEED) {
-      velocity.x += forwardX * AI_ACCEL * dt;
-      velocity.z += forwardZ * AI_ACCEL * dt;
-      const newSpeed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
-      if (newSpeed > AI_SPEED) {
-        velocity.x = (velocity.x / newSpeed) * AI_SPEED;
-        velocity.z = (velocity.z / newSpeed) * AI_SPEED;
-      }
+    const forwardSpeed = velocity.x * forwardX + velocity.z * forwardZ;
+    if (forwardSpeed < AI_SPEED) {
+      const thrust = Math.min(AI_ACCEL * dt, AI_SPEED - forwardSpeed);
+      velocity.x += forwardX * thrust;
+      velocity.z += forwardZ * thrust;
     }
   }
 

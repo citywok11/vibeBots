@@ -426,9 +426,12 @@ describe('Robot', () => {
     robot.velocity.x = 5;
     robot.velocity.z = 3;
     robot.update(0.1);
-    // Horizontal velocity should decay due to friction (0.98)
-    expect(robot.velocity.x).toBeCloseTo(5 * 0.98, 5);
+    // Forward velocity (vz at rotation=0) should decay due to friction (0.98)
     expect(robot.velocity.z).toBeCloseTo(3 * 0.98, 5);
+    // Lateral velocity (vx at rotation=0) should decay more aggressively due to
+    // both normal friction and lateral grip
+    expect(robot.velocity.x).toBeLessThan(5 * 0.98);
+    expect(robot.velocity.x).toBeGreaterThan(0);
   });
 
   describe('angular velocity (yaw spin from collisions)', () => {
@@ -585,6 +588,67 @@ describe('Robot', () => {
       robot.updateAI(0.1, { x: 0, z: 0 });
       expect(robot.velocity.x).toBe(0);
       expect(robot.velocity.z).toBe(0);
+    });
+  });
+
+  describe('lateral grip (anti-slide)', () => {
+    it('should damp sideways velocity relative to heading each frame', () => {
+      const robot = createRobot({ x: 0, z: 0 });
+      // Heading is default (rotation.y = 0) → forward is (0, -1) in XZ
+      // Give the robot pure lateral velocity (along +x)
+      robot.velocity.x = 10;
+      robot.velocity.z = 0;
+      robot.update(1 / 60);
+      // After one frame, lateral component should be significantly reduced
+      // compared to what plain FRICTION (0.98) alone would give
+      const plainFrictionResult = 10 * 0.98;
+      expect(Math.abs(robot.velocity.x)).toBeLessThan(plainFrictionResult);
+    });
+
+    it('should not damp forward velocity (along the heading)', () => {
+      const robot = createRobot({ x: 0, z: 0 });
+      // Heading default → forward is (0, -1). Give pure forward velocity.
+      robot.velocity.x = 0;
+      robot.velocity.z = -10;
+      robot.update(1 / 60);
+      // Forward velocity should only be affected by normal FRICTION, not lateral grip
+      const expected = -10 * 0.98;
+      expect(robot.velocity.z).toBeCloseTo(expected, 2);
+    });
+
+    it('should make the robot track its heading when turning toward a new target', () => {
+      // Robot starts heading along -Z, we give it velocity along -Z, then
+      // steer it 90° to face +X. The robot should curve toward the new heading
+      // rather than keep sliding along -Z.
+      const robot = createRobot({ x: 0, z: 0 });
+      // Push it forward along its initial heading
+      robot.velocity.z = -8;
+      // Now steer toward +X and simulate for a bit
+      for (let i = 0; i < 120; i++) {
+        robot.updateAI(1 / 60, { x: 50, z: 0 });
+        robot.update(1 / 60);
+      }
+      // After turning toward +X and gripping, most velocity should be along +X
+      const speed = Math.sqrt(robot.velocity.x ** 2 + robot.velocity.z ** 2);
+      if (speed > 0.1) {
+        const forwardFraction = robot.velocity.x / speed; // should be large and positive
+        expect(forwardFraction).toBeGreaterThan(0.7);
+      }
+    });
+
+    it('should not apply lateral grip while airborne', () => {
+      const robot = createRobot({ x: 0, z: 0 });
+      // Launch the robot into the air
+      robot.velocityY = 10;
+      robot.update(1 / 60); // now airborne
+      // Give pure lateral velocity
+      robot.velocity.x = 10;
+      robot.velocity.z = 0;
+      const before = robot.velocity.x;
+      robot.update(1 / 60);
+      // Should only lose normal friction, not lateral grip
+      const expected = before * 0.98;
+      expect(robot.velocity.x).toBeCloseTo(expected, 2);
     });
   });
 });
