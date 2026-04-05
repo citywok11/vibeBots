@@ -295,8 +295,8 @@ describe('createArenaFlipper — applyLaunch', () => {
     flipper.fire();
     flipper.update(0.05);
     flipper.applyLaunch(robot);
-    // Complete full cycle: fire (~0.1s) + reset (~0.17s) + cooldown (2.5s) ≈ 2.8s; use 4.0s for safety
-    tick(flipper, 4.0);
+    // Complete full cycle: fire (~0.1s) + reset (~0.17s) + cooldown (5.5s) ≈ 5.8s; use 7.0s for safety
+    tick(flipper, 7.0);
     expect(flipper.getState()).toBe(STATE_IDLE);
     robot.velocityY = 0;
     robot.velocity.x = 0;

@@ -219,8 +219,12 @@ function gameLoop(time) {
       wheelHyst: robotPitWheelHyst,
     },
   ].forEach(({ entity, trapped, setTrapped, width, depth, wheelHyst }) => {
-    // If entity has upward velocity (launched by flipper/arena flipper), let its own physics handle Y
-    if (!trapped && entity.velocityY !== undefined && entity.velocityY > 0) {
+    // If entity is airborne (launched by flipper/arena flipper), let its own physics handle Y.
+    // Check both upward velocity AND whether the entity is above ground level — gravity
+    // in the entity's own update() will bring it back down smoothly rather than teleporting.
+    const airborne = entity.velocityY !== undefined
+      && (entity.velocityY > 0 || entity.group.position.y > entity.groundY + 0.01);
+    if (!trapped && airborne) {
       entity.applyFrameRotation(0, 0);
       return;
     }
