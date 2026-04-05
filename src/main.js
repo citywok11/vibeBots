@@ -8,6 +8,7 @@ import { createHomeScreen } from './home-screen.js';
 import { createOptionsScreen } from './options-screen.js';
 import { createExitScreen } from './exit-screen.js';
 import { createGameController } from './game.js';
+import { createCustomiseScreen } from './customise-screen.js';
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -51,6 +52,7 @@ const homeScreen = createHomeScreen(document.body);
 const optionsScreen = createOptionsScreen(document.body);
 const exitScreen = createExitScreen(document.body);
 const menu = createMenu(document.body);
+const customiseScreen = createCustomiseScreen(document.body);
 const keyBindingsScreen = createKeyBindingsScreen(document.body, input);
 
 // Game loop
@@ -63,7 +65,7 @@ function gameLoop(time) {
   const dt = (time - lastTime) / 1000;
   lastTime = time;
 
-  if (menu.isOpen()) {
+  if (menu.isOpen() || customiseScreen.isOpen()) {
     renderer.render(scene, camera);
     rafId = requestAnimationFrame(gameLoop);
     return;
@@ -162,8 +164,13 @@ window.addEventListener('keydown', (e) => {
 
 menu.onCustomise(() => {
   menu.close();
-  keyBindingsReturnTo = () => menu.open();
-  keyBindingsScreen.open();
+  customiseScreen.open();
+});
+
+// onClose fires when Back is clicked; close the screen then return to the pause menu
+customiseScreen.onClose(() => {
+  customiseScreen.close();
+  menu.open();
 });
 
 menu.onOptions(() => {

@@ -31,11 +31,12 @@ main.js (entry point, game loop, screen orchestration)
   ├── input.js              — action-to-key binding system
   ├── home-screen.js        — title screen (Play, Options, Exit)
   ├── options-screen.js     — options menu (Key Bindings, Back)
-  ├── menu.js               — in-game pause menu (Resume, Key Bindings, Exit)
+  ├── menu.js               — in-game pause menu (Customise, Options, Exit)
+  ├── customise-screen.js   — loadout picker (Model, Wheels, Flipper sections)
   └── keybindings-screen.js — key rebinding UI (reads actions dynamically)
 ```
 
-Modules are loosely coupled: `arena.js`, `car.js`, and `input.js` are independent. Screen modules (`home-screen.js`, `options-screen.js`, `menu.js`, `keybindings-screen.js`) depend only on a DOM container (and `input.js` for the keybindings screen). `main.js` wires everything together.
+Modules are loosely coupled: `arena.js`, `car.js`, and `input.js` are independent. Screen modules (`home-screen.js`, `options-screen.js`, `menu.js`, `customise-screen.js`, `keybindings-screen.js`) depend only on a DOM container (and `input.js` for the keybindings screen). `main.js` wires everything together.
 
 ### Screen navigation flow
 
@@ -49,8 +50,8 @@ Home Screen
 
 In-Game (Escape)
   └── Pause Menu
-        ├── Resume → Close menu
-        ├── Key Bindings → Key Bindings Screen → Back to Pause Menu
+        ├── Customise → Customise Screen → Back to Pause Menu
+        ├── Options → Options Screen → Key Bindings Screen → Back to Options
         └── Exit → Home Screen
 ```
 
