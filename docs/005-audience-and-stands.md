@@ -27,8 +27,10 @@ All existing return properties (`floor`, `walls`, `group`, `size`) are unchanged
 
 **Audience figures**:
 - 18 figures per tier row (54 per side, 216 total for a size-50 arena).
-- Each figure is a small box mesh (0.55 × 1.2 × 0.55 units).
-- Colours cycle through eight vivid colours to simulate a crowd.
+- Each figure has a coloured box body (0.55 × 0.75 × 0.35 units) and a cube head (0.42 × 0.42 × 0.42 units) parented to it.
+- Body colours cycle through eight vivid colours to simulate a crowd; all heads share a warm skin tone (`0xffd5a0`).
+- Each figure has a subtle deterministic lean (`rotation.z = sin(col * 1.3 + tier * 0.7) * 0.08`) for a natural crowd feel.
+- `audienceFigures` contains the body mesh of each figure (head is a child of the body mesh).
 
 **Internal helper**: `createStandsAndAudience(size, wallThickness)` — not exported; called only from `createArena`.
 
@@ -37,4 +39,4 @@ All existing return properties (`floor`, `walls`, `group`, `size`) are unchanged
 - **Groups per side**: Each side's stand and figures are children of one `THREE.Group`, making it easy to hide, animate, or recolour a whole stand in future.
 - **Rotation strategy**: All stands are built with the same local orientation (tiers step in +Z). The group's `rotation.y` is set per side so tiers always step away from the arena: `Math.PI` for North, `0` for South, `Math.PI/2` for East, `-Math.PI/2` for West.
 - **Proportional scaling**: Stand width grows with arena size, so the crowd fills the background correctly regardless of the `size` argument passed to `createArena`.
-- **Deterministic colours**: Figure colours are chosen by `(col + tier * 3) % 8`, which is deterministic (no `Math.random`) — this keeps tests reliable and avoids snapshot churn.
+- **Deterministic colours and lean**: Figure colours are chosen by `(col + tier * 3) % 8`, and lean angles by `sin(col * 1.3 + tier * 0.7) * 0.08`. Both are deterministic (no `Math.random`) — this keeps tests reliable and avoids snapshot churn.
