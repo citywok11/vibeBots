@@ -17,6 +17,7 @@ const coverVertexShader = `
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
+const COVER_BASE_GRAY = 0.2;
 const coverFragmentShader = `
   uniform float uDepth;
   varying vec2 vUv;
@@ -24,7 +25,7 @@ const coverFragmentShader = `
     vec2 centered = abs(vUv - 0.5) * 2.0;
     float edgeFactor = max(centered.x, centered.y);
     float shadow = uDepth * edgeFactor * 0.85;
-    vec3 color = vec3(0.2, 0.2, 0.2) * (1.0 - shadow);
+    vec3 color = vec3(${COVER_BASE_GRAY}, ${COVER_BASE_GRAY}, ${COVER_BASE_GRAY}) * (1.0 - shadow);
     gl_FragColor = vec4(color, 1.0);
   }
 `;

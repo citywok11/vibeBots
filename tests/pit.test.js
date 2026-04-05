@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { createPit, DEFAULT_PIT_SIZE } from '../src/pit.js';
 
+function getShaftWalls(pit) {
+  return pit.group.children.filter(
+    c => c.isMesh && c !== pit.cover && c !== pit.depthFloor
+      && c.geometry.parameters.height !== undefined
+      && c.geometry.parameters.height > 0.5
+  );
+}
+
 describe('Pit', () => {
   it('should export a default pit size constant', () => {
     expect(DEFAULT_PIT_SIZE).toBe(6);
@@ -270,22 +278,12 @@ describe('Pit', () => {
 
   it('should add 4 pit shaft side wall meshes to the group', () => {
     const pit = createPit(50);
-    const walls = pit.group.children.filter(
-      c => c.isMesh && c !== pit.cover && c !== pit.depthFloor
-        && c.geometry.parameters.height !== undefined
-        && c.geometry.parameters.height > 0.5
-    );
-    expect(walls.length).toBe(4);
+    expect(getShaftWalls(pit).length).toBe(4);
   });
 
   it('side walls should be centred vertically at half pit depth', () => {
     const pit = createPit(50);
-    const walls = pit.group.children.filter(
-      c => c.isMesh && c !== pit.cover && c !== pit.depthFloor
-        && c.geometry.parameters.height !== undefined
-        && c.geometry.parameters.height > 0.5
-    );
-    walls.forEach(wall => {
+    getShaftWalls(pit).forEach(wall => {
       expect(wall.position.y).toBeCloseTo(-1);
     });
   });
