@@ -7,8 +7,11 @@ const STAND_WIDTH_EXTRA = 14;
 const STAND_WALL_GAP = 1.5;
 
 const FIGURES_PER_ROW = 18;
-const FIGURE_HEIGHT = 1.2;
 const FIGURE_WIDTH = 0.55;
+const FIGURE_BODY_HEIGHT = 0.75;
+const FIGURE_BODY_DEPTH = 0.35;
+const FIGURE_HEAD_SIZE = 0.42;
+const FIGURE_HEAD_COLOR = 0xffd5a0;
 const FIGURE_COLORS = [
   0xff3333, 0x3366ff, 0xffdd00, 0x33cc44,
   0xff55cc, 0x00ccff, 0xffffff, 0xff8800,
@@ -43,17 +46,27 @@ function createStandsAndAudience(size, wallThickness) {
 
       for (let col = 0; col < FIGURES_PER_ROW; col++) {
         const figureColor = FIGURE_COLORS[(col + tier * 3) % FIGURE_COLORS.length];
-        const figGeo = new THREE.BoxGeometry(FIGURE_WIDTH, FIGURE_HEIGHT, FIGURE_WIDTH);
-        const figMat = new THREE.MeshStandardMaterial({ color: figureColor });
-        const fig = new THREE.Mesh(figGeo, figMat);
+
+        const bodyGeo = new THREE.BoxGeometry(FIGURE_WIDTH, FIGURE_BODY_HEIGHT, FIGURE_BODY_DEPTH);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: figureColor });
+        const figBody = new THREE.Mesh(bodyGeo, bodyMat);
+
         const xPos = (col / (FIGURES_PER_ROW - 1) - 0.5) * (standWidth - 3);
-        fig.position.set(
+        figBody.position.set(
           xPos,
-          tier * STAND_TIER_HEIGHT + STAND_TIER_HEIGHT / 2 + FIGURE_HEIGHT / 2,
+          tier * STAND_TIER_HEIGHT + STAND_TIER_HEIGHT / 2 + FIGURE_BODY_HEIGHT / 2,
           tier * STAND_TIER_DEPTH,
         );
-        standGroup.add(fig);
-        audienceFigures.push(fig);
+        figBody.rotation.z = Math.sin(col * 1.3 + tier * 0.7) * 0.08;
+
+        const headGeo = new THREE.BoxGeometry(FIGURE_HEAD_SIZE, FIGURE_HEAD_SIZE, FIGURE_HEAD_SIZE);
+        const headMat = new THREE.MeshStandardMaterial({ color: FIGURE_HEAD_COLOR });
+        const figHead = new THREE.Mesh(headGeo, headMat);
+        figHead.position.y = FIGURE_BODY_HEIGHT / 2 + FIGURE_HEAD_SIZE / 2;
+        figBody.add(figHead);
+
+        standGroup.add(figBody);
+        audienceFigures.push(figBody);
       }
     }
 
