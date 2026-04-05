@@ -140,7 +140,8 @@ function createItemButton(item, isSelected, visualFactory) {
   return btn;
 }
 
-function createSection(sectionTitle, items, selectionKey, selections, visualFactory) {
+function createSection(sectionTitle, items, selectionKey, selections, visualFactory, options = {}) {
+  const { allowDeselect = true } = options;
   const section = document.createElement('div');
   section.className = `customise-section customise-section-${selectionKey}`;
   section.style.cssText = 'margin-bottom: 28px;';
@@ -178,7 +179,11 @@ function createSection(sectionTitle, items, selectionKey, selections, visualFact
         b.style.borderColor = '#444';
         b.style.boxShadow = '';
       });
-      if (alreadySelected) {
+      if (alreadySelected && !allowDeselect) {
+        // Section requires a selection — keep the item selected
+        btn.style.borderColor = '#ffd700';
+        btn.style.boxShadow = '0 0 12px rgba(255, 215, 0, 0.45)';
+      } else if (alreadySelected) {
         selections[selectionKey] = null;
       } else {
         selections[selectionKey] = item.id;
@@ -200,9 +205,9 @@ export function createCustomiseScreen(container) {
 
   const selections = {
     model: 'standard',
-    wheels: 'standard',
-    flipper: 'standard',
-    flamethrower: 'standard',
+    wheels: null,
+    flipper: null,
+    flamethrower: null,
   };
 
   // Overlay
@@ -247,7 +252,7 @@ export function createCustomiseScreen(container) {
   `;
   panel.appendChild(title);
 
-  panel.appendChild(createSection('Model', CATALOGUE.models, 'model', selections, createModelVisual));
+  panel.appendChild(createSection('Model', CATALOGUE.models, 'model', selections, createModelVisual, { allowDeselect: false }));
   panel.appendChild(createSection('Wheels', CATALOGUE.wheels, 'wheels', selections, createWheelVisual));
   panel.appendChild(createSection('Flipper', CATALOGUE.flippers, 'flipper', selections, createFlipperVisual));
   panel.appendChild(createSection('Flamethrower', CATALOGUE.flamethrowers, 'flamethrower', selections, createFlamethrowerVisual));
