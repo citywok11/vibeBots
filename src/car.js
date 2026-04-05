@@ -337,6 +337,12 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   let pitchTilt = 0;       // rotation around X axis (forward/back rock)
   let rollTilt = 0;        // rotation around Z axis (side-to-side rock)
 
+  // Airborne tumble — full 3D angular velocities applied while in the air
+  let pitchVelocity = 0;   // rad/s around local X axis (forward tumble)
+  let rollVelocity = 0;    // rad/s around local Z axis (sideways tumble)
+  let airPitch = 0;         // accumulated pitch angle while airborne
+  let airRoll = 0;          // accumulated roll angle while airborne
+
   // Active variant tracking
   let activeModelId = 'standard';
   let activeWheelId = 'standard';
@@ -429,6 +435,10 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     angularVelocity = 0;
     pitchTilt = 0;
     rollTilt = 0;
+    pitchVelocity = 0;
+    rollVelocity = 0;
+    airPitch = 0;
+    airRoll = 0;
     steerAngle = 0;
     hasWheels = true;
     flipperAngle = 0;
@@ -539,6 +549,8 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     velocity.x *= currentFriction;
     velocity.z *= currentFriction;
 
+    const wasAirborne = group.position.y > groupY + 0.01;
+
     // Vertical physics (gravity + ground clamp)
     const GRAVITY = 30;
     velocityY -= GRAVITY * dt;
@@ -546,7 +558,17 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     if (group.position.y <= groupY) {
       group.position.y = groupY;
       velocityY = 0;
+
+      // Landing — snap upright and clear tumble state
+      if (wasAirborne) {
+        pitchVelocity = 0;
+        rollVelocity = 0;
+        airPitch = 0;
+        airRoll = 0;
+      }
     }
+
+    const airborne = group.position.y > groupY + 0.01;
 
     // Apply angular velocity (yaw spin from collisions)
     const ANGULAR_FRICTION = 0.95;
@@ -554,13 +576,24 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     angularVelocity *= ANGULAR_FRICTION;
     if (Math.abs(angularVelocity) < 0.01) angularVelocity = 0;
 
-    // Decay pitch and roll tilt back to zero
-    pitchTilt *= Math.max(0, 1 - TILT_DECAY * dt);
-    rollTilt *= Math.max(0, 1 - TILT_DECAY * dt);
-    if (Math.abs(pitchTilt) < 0.001) pitchTilt = 0;
-    if (Math.abs(rollTilt) < 0.001) rollTilt = 0;
+    if (airborne) {
+      // Airborne: integrate pitch/roll angular velocities for free tumbling
+      const AIR_ANGULAR_FRICTION = 0.99;
+      airPitch += pitchVelocity * dt;
+      airRoll += rollVelocity * dt;
+      pitchVelocity *= AIR_ANGULAR_FRICTION;
+      rollVelocity *= AIR_ANGULAR_FRICTION;
 
-    applyFrameRotation(0, 0);
+      applyFrameRotation(airPitch, airRoll);
+    } else {
+      // Grounded: small cosmetic tilt from collisions, decays quickly
+      pitchTilt *= Math.max(0, 1 - TILT_DECAY * dt);
+      rollTilt *= Math.max(0, 1 - TILT_DECAY * dt);
+      if (Math.abs(pitchTilt) < 0.001) pitchTilt = 0;
+      if (Math.abs(rollTilt) < 0.001) rollTilt = 0;
+
+      applyFrameRotation(0, 0);
+    }
 
     // Spin wheels based on forward speed
     const fwdX = -Math.sin(rotation);
@@ -657,6 +690,19 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   }
 
   /**
+   * Applies 3D tumble angular velocities from a flipper launch.
+   *
+   * @param {number} pitchImpulse - Angular velocity change around X axis (rad/s)
+   * @param {number} rollImpulse  - Angular velocity change around Z axis (rad/s)
+   * @param {number} [yawImpulse=0] - Angular velocity change around Y axis (rad/s)
+   */
+  function applyFlipTumble(pitchImpulse, rollImpulse, yawImpulse = 0) {
+    pitchVelocity += pitchImpulse;
+    rollVelocity += rollImpulse;
+    angularVelocity += yawImpulse;
+  }
+
+  /**
    * Applies a visual pitch and roll tilt based on the collision impact direction.
    * The tilt is relative to the car's local frame: a hit from the front/back
    * produces pitch, a hit from the side produces roll.
@@ -731,6 +777,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     reset,
     applyCustomisation,
     applyAngularImpulse,
+    applyFlipTumble,
     applyImpactTilt,
   };
 }

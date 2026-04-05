@@ -287,6 +287,19 @@ export function createArenaFlipper(x, z, facingAngle = 0, tuning = {}) {
     robot.velocity.x += latX * lateralAssist;
     robot.velocity.z += latZ * lateralAssist;
 
+    // ── 3D tumble ───────────────────────────────────────────────
+    // The paddle launches from below, so the robot tumbles backward
+    // (negative pitch = nose-up).  Off-centre hits add roll and yaw.
+    if (typeof robot.applyFlipTumble === 'function') {
+      const ARENA_TUMBLE_PITCH = 10;
+      const ARENA_TUMBLE_ROLL = 7;
+      const ARENA_TUMBLE_YAW = 3;
+      const pitchImpulse = -ARENA_TUMBLE_PITCH * force;
+      const rollImpulse = normalizedOffset * ARENA_TUMBLE_ROLL * force;
+      const yawImpulse = normalizedOffset * ARENA_TUMBLE_YAW * force;
+      robot.applyFlipTumble(pitchImpulse, rollImpulse, yawImpulse);
+    }
+
     launchedRobotsThisSwing.add(robot);
     return true;
   }

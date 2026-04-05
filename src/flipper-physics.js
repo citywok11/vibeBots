@@ -7,6 +7,14 @@ const ROBOT_HALF_DEPTH = ROBOT_BODY_DEPTH / 2;
 const FLIPPER_STRENGTH = 15;
 const LATERAL_FACTOR = 0.5;
 
+// ── Tumble tuning ──────────────────────────────────────────────────
+/** Base pitch angular velocity (rad/s) applied when flipped — robot tumbles backward. */
+const TUMBLE_PITCH_STRENGTH = 8;
+/** Roll angular velocity (rad/s) per unit of lateral offset — off-centre hits spin sideways. */
+const TUMBLE_ROLL_STRENGTH = 6;
+/** Yaw spin (rad/s) per unit of lateral offset — off-centre hits also twist. */
+const TUMBLE_YAW_STRENGTH = 3;
+
 /**
  * Checks whether the robot's body overlaps the flipper zone in the car's local frame,
  * accounting for the flipper's current rotation angle around its hinge pivot.
@@ -111,6 +119,16 @@ export function applyFlipperImpulse(car, robot) {
   // Rotate local X force back into world XZ
   robot.velocity.x += lateralLocalX * Math.cos(carAngle);
   robot.velocity.z += -lateralLocalX * Math.sin(carAngle);
+
+  // ── 3D tumble ───────────────────────────────────────────────────
+  // The flipper strikes from the car's front, so the robot tumbles backward
+  // (negative pitch = nose-up).  Off-centre hits add roll and yaw spin.
+  if (typeof robot.applyFlipTumble === 'function') {
+    const pitchImpulse = -TUMBLE_PITCH_STRENGTH * normalizedAngle * car.flipperPower;
+    const rollImpulse = contact.xOffset * TUMBLE_ROLL_STRENGTH * normalizedAngle * car.flipperPower;
+    const yawImpulse = contact.xOffset * TUMBLE_YAW_STRENGTH * normalizedAngle * car.flipperPower;
+    robot.applyFlipTumble(pitchImpulse, rollImpulse, yawImpulse);
+  }
 
   return true;
 }
