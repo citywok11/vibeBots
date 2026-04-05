@@ -429,15 +429,13 @@ describe('Car sub-component collision detection (wheels and flipper)', () => {
     it('should clamp position so no wheel extends beyond the arena wall', () => {
       const arenaSize = 50;
       const half = arenaSize / 2;
-      const wheelRadius = 0.6;
-      const wheelWidth = wheelRadius * 0.5;
-      const wheelOffsetX = 2 / 2 + wheelWidth / 2; // width/2 + wheelWidth/2
-      const outerEdge = wheelOffsetX + wheelWidth / 2; // outermost wheel edge in local X
+      // effectiveHalfWidth = width/2 + wheelWidth = 1 + (0.6 * 0.5) = 1.3
+      const effectiveHalfWidth = 2 / 2 + 0.6 * 0.5;
 
       const car = createCar({ x: 40, z: 0 }); // well past the east wall
       car.bounceOffWalls(arenaSize);
       // After clamping, the wheel outer edge must sit at or inside the arena wall
-      expect(car.group.position.x + outerEdge).toBeLessThanOrEqual(half + 0.001);
+      expect(car.group.position.x + effectiveHalfWidth).toBeLessThanOrEqual(half + 0.001);
     });
   });
 
