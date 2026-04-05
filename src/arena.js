@@ -4,7 +4,7 @@ const STAND_TIER_COUNT = 3;
 const STAND_TIER_HEIGHT = 1.8;
 const STAND_TIER_DEPTH = 3.5;
 const STAND_WIDTH_EXTRA = 14;
-const STAND_WALL_GAP = 1.5;
+const STAND_WALL_GAP = 10;
 
 const FIGURES_PER_ROW = 18;
 const FIGURE_WIDTH = 0.55;
