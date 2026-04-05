@@ -1,6 +1,7 @@
 export function createHomeScreen(container) {
   let open = false;
   let playCallback = null;
+  let rogueLikeCallback = null;
   let optionsCallback = null;
   let exitCallback = null;
 
@@ -72,6 +73,11 @@ export function createHomeScreen(container) {
   playBtn.addEventListener('click', () => { if (playCallback) playCallback(); });
   panel.appendChild(playBtn);
 
+  // Rogue Like button
+  const rogueLikeBtn = createButton('Rogue Like');
+  rogueLikeBtn.addEventListener('click', () => { if (rogueLikeCallback) rogueLikeCallback(); });
+  panel.appendChild(rogueLikeBtn);
+
   // Options button
   const optionsBtn = createButton('Options');
   optionsBtn.addEventListener('click', () => { if (optionsCallback) optionsCallback(); });
@@ -100,6 +106,7 @@ export function createHomeScreen(container) {
   }
 
   function onPlay(cb) { playCallback = cb; }
+  function onRogueLike(cb) { rogueLikeCallback = cb; }
   function onOptions(cb) { optionsCallback = cb; }
   function onExit(cb) { exitCallback = cb; }
 
@@ -108,6 +115,7 @@ export function createHomeScreen(container) {
     open: openScreen,
     close: closeScreen,
     onPlay,
+    onRogueLike,
     onOptions,
     onExit,
   };

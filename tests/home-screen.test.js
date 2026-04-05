@@ -60,6 +60,13 @@ describe('HomeScreen', () => {
     expect(labels).toContain('Options');
   });
 
+  it('should have a Rogue Like button', () => {
+    screen.open();
+    const buttons = container.querySelectorAll('.home-screen-button');
+    const labels = Array.from(buttons).map(b => b.textContent);
+    expect(labels).toContain('Rogue Like');
+  });
+
   it('should have an Exit button', () => {
     screen.open();
     const buttons = container.querySelectorAll('.home-screen-button');
@@ -74,6 +81,16 @@ describe('HomeScreen', () => {
     const buttons = container.querySelectorAll('.home-screen-button');
     const playBtn = Array.from(buttons).find(b => b.textContent === 'Sandbox Mode');
     playBtn.click();
+    expect(called).toBe(true);
+  });
+
+  it('should call onRogueLike callback when Rogue Like is clicked', () => {
+    let called = false;
+    screen.onRogueLike(() => { called = true; });
+    screen.open();
+    const buttons = container.querySelectorAll('.home-screen-button');
+    const rogueLikeBtn = Array.from(buttons).find(b => b.textContent === 'Rogue Like');
+    rogueLikeBtn.click();
     expect(called).toBe(true);
   });
 
