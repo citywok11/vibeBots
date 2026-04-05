@@ -13,7 +13,7 @@ import { createGameController } from './game.js';
 import { createCustomiseScreen } from './customise-screen.js';
 import { resolveCollision } from './collision.js';
 import { applyFlipperImpulse } from './flipper-physics.js';
-import { createPit, DEFAULT_PIT_SIZE } from './pit.js';
+import { createPit, DEFAULT_PIT_SIZE, PIT_DEPTH } from './pit.js';
 import { createPitButton } from './pit-button.js';
 import { createPitAlarm } from './pit-alarm.js';
 
@@ -87,19 +87,11 @@ const keyBindingsScreen = createKeyBindingsScreen(document.body, input);
 // Game loop
 const ACCEL = 20;
 const TURN_SPEED = 3;
-const PIT_FALL_SPEED = 8;   // units per second drop when falling into pit
-const PIT_RESET_DEPTH = -10; // Y depth at which a fallen bot resets
 let lastTime = performance.now();
 let rafId = null;
 let flipImpulseApplied = false;
-let carFalling = false;
-let robotFalling = false;
-let carRidingCover = false;
-let robotRidingCover = false;
-
-function sinkIntoPit(entity, dt) {
-  entity.group.position.y -= PIT_FALL_SPEED * dt;
-}
+let carTrapped = false;
+let robotTrapped = false;
 
 function gameLoop(time) {
   const dt = (time - lastTime) / 1000;
@@ -121,83 +113,61 @@ function gameLoop(time) {
     pitAlarm.stop();
   }
 
-  if (!carFalling) {
-    if (input.isPressed('forward')) car.accelerate(ACCEL * dt);
-    if (input.isPressed('backward')) car.accelerate(-ACCEL * dt);
-    if (input.isPressed('turnLeft')) car.turnLeft(TURN_SPEED * dt);
-    if (input.isPressed('turnRight')) car.turnRight(TURN_SPEED * dt);
-    if (input.wasJustPressed('flipper')) {
-      car.activateFlipper();
-      flipImpulseApplied = false;
-    }
-    if (input.isPressed('flamethrower')) {
-      car.activateFlamethrower();
+  if (input.isPressed('forward')) car.accelerate(ACCEL * dt);
+  if (input.isPressed('backward')) car.accelerate(-ACCEL * dt);
+  if (input.isPressed('turnLeft')) car.turnLeft(TURN_SPEED * dt);
+  if (input.isPressed('turnRight')) car.turnRight(TURN_SPEED * dt);
+  if (input.wasJustPressed('flipper')) {
+    car.activateFlipper();
+    flipImpulseApplied = false;
+  }
+  if (input.isPressed('flamethrower')) {
+    car.activateFlamethrower();
+  } else {
+    car.deactivateFlamethrower();
+  }
+
+  car.update(dt);
+  car.bounceOffWalls(ARENA_SIZE);
+
+  robot.update(dt);
+  robot.bounceOffWalls(ARENA_SIZE);
+
+  // Pit Y-tracking: entities ride the cover down and get trapped at the bottom
+  [
+    { entity: car, trapped: carTrapped, setTrapped: v => { carTrapped = v; } },
+    { entity: robot, trapped: robotTrapped, setTrapped: v => { robotTrapped = v; } },
+  ].forEach(({ entity, trapped, setTrapped }) => {
+    const overPit = pit.containsPoint(entity.group.position.x, entity.group.position.z);
+    if (trapped) {
+      // Trapped at pit floor — keep Y locked
+      entity.group.position.y = entity.groundY - PIT_DEPTH;
+    } else if (overPit && pit.isOpen()) {
+      // Pit fully open — entity drops in and is trapped
+      setTrapped(true);
+      entity.group.position.y = entity.groundY - PIT_DEPTH;
+    } else if (overPit && pit.isLowering()) {
+      // Ride the cover down
+      entity.group.position.y = entity.groundY + pit.getCoverY();
     } else {
-      car.deactivateFlamethrower();
+      // On normal ground
+      entity.group.position.y = entity.groundY;
     }
+  });
 
-    car.update(dt);
-    car.bounceOffWalls(ARENA_SIZE);
-
-    if (pit.containsPoint(car.group.position.x, car.group.position.z)) {
-      if (pit.isOpen()) {
-        carFalling = true;
-        carRidingCover = false;
-      } else if (pit.isLowering()) {
-        carRidingCover = true;
-        car.group.position.y = car.groundY + pit.getCoverY();
-      }
-    } else if (carRidingCover) {
-      // Car drove off the cover while it was still lowering — restore to floor level
-      carRidingCover = false;
-      car.group.position.y = car.groundY;
-    }
-  } else {
-    sinkIntoPit(car, dt);
-    if (car.group.position.y < PIT_RESET_DEPTH) {
-      car.reset();
-      car.group.position.y = car.groundY;
-      carFalling = false;
-      carRidingCover = false;
-    }
-  }
-
-  if (!robotFalling) {
-    robot.update(dt);
-    robot.bounceOffWalls(ARENA_SIZE);
-
-    if (pit.containsPoint(robot.group.position.x, robot.group.position.z)) {
-      if (pit.isOpen()) {
-        robotFalling = true;
-        robotRidingCover = false;
-      } else if (pit.isLowering()) {
-        robotRidingCover = true;
-        robot.group.position.y = robot.groundY + pit.getCoverY();
-      }
-    } else if (robotRidingCover) {
-      // Robot moved off the cover while it was still lowering — restore to floor level
-      robotRidingCover = false;
-      robot.group.position.y = robot.groundY;
-    }
-  } else {
-    sinkIntoPit(robot, dt);
-    if (robot.group.position.y < PIT_RESET_DEPTH) {
-      robot.reset();
-      robot.group.position.y = robot.groundY;
-      robotFalling = false;
-      robotRidingCover = false;
-    }
-  }
+  // Pit wall collision: trapped entities stay inside
+  if (carTrapped) pit.constrainEntity(car, true);
+  if (robotTrapped) pit.constrainEntity(robot, true);
 
   // Apply flipper impulse once per flip activation when robot is in range
-  if (!carFalling && !robotFalling && car.flipperActive && !flipImpulseApplied) {
+  if (car.flipperActive && !flipImpulseApplied) {
     if (applyFlipperImpulse(car, robot)) {
       flipImpulseApplied = true;
     }
   }
 
-  // Resolve collision between player car and dummy robot (only when neither is falling)
-  if (!carFalling && !robotFalling) {
+  // Resolve collision between player car and dummy robot
+  {
     const collisionResult = resolveCollision(
       {
         position: car.group.position, velocity: car.velocity, mass: car.mass,
@@ -240,11 +210,9 @@ function startLoop() {
   car.reset();
   robot.reset();
   pit.reset();
-  carFalling = false;
-  robotFalling = false;
-  carRidingCover = false;
-  robotRidingCover = false;
   pitButton.reset();
+  carTrapped = false;
+  robotTrapped = false;
   renderer.domElement.style.display = 'block';
   lastTime = performance.now();
   if (!rafId) rafId = requestAnimationFrame(gameLoop);

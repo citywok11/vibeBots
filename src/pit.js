@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 export const DEFAULT_PIT_SIZE = 6;
-const PIT_DEPTH = 2;
+export const PIT_DEPTH = 2;
 const LOWER_SPEED = 0.2; // units per second (takes 10 seconds to lower fully)
 const FRAME_THICKNESS = 0.3;
 const FRAME_HEIGHT = 0.1;
@@ -207,9 +207,46 @@ export function createPit(arenaSize, { pitSize = DEFAULT_PIT_SIZE } = {}) {
     return Math.abs(x) < half && Math.abs(z) < half;
   }
 
+  // Keep a trapped entity inside the pit walls, or an arena entity outside them.
+  // `entity` must have { group: { position }, velocity, collisionRadius }.
+  function constrainEntity(entity, trapped) {
+    const pos = entity.group.position;
+    const r = entity.collisionRadius;
+    const RESTITUTION = 0.6;
+
+    if (trapped) {
+      // Keep inside: clamp to inner edge of pit walls
+      const limit = half - r;
+      if (pos.x > limit)  { pos.x = limit;  entity.velocity.x *= -RESTITUTION; }
+      if (pos.x < -limit) { pos.x = -limit; entity.velocity.x *= -RESTITUTION; }
+      if (pos.z > limit)  { pos.z = limit;  entity.velocity.z *= -RESTITUTION; }
+      if (pos.z < -limit) { pos.z = -limit; entity.velocity.z *= -RESTITUTION; }
+    } else {
+      // Keep outside: push away from outer edge of pit walls
+      const ax = Math.abs(pos.x);
+      const az = Math.abs(pos.z);
+      const edgeX = half + r;
+      const edgeZ = half + r;
+
+      // Only constrain if the entity is close to the pit on both axes
+      if (ax < edgeX && az < edgeZ) {
+        // Find which axis has the smallest penetration and push out on that axis
+        const penX = edgeX - ax;
+        const penZ = edgeZ - az;
+        if (penX < penZ) {
+          pos.x = Math.sign(pos.x) * edgeX;
+          entity.velocity.x *= -RESTITUTION;
+        } else {
+          pos.z = Math.sign(pos.z) * edgeZ;
+          entity.velocity.z *= -RESTITUTION;
+        }
+      }
+    }
+  }
+
   function isOpen() { return _isOpen; }
   function isLowering() { return _isLowering; }
   function getCoverY() { return coverY; }
 
-  return { group, cover, depthFloor, warningSign, activate, reset, update, containsPoint, isOpen, isLowering, getCoverY, pitSize };
+  return { group, cover, depthFloor, warningSign, activate, reset, update, containsPoint, constrainEntity, isOpen, isLowering, getCoverY, pitSize };
 }
