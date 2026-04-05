@@ -10,6 +10,7 @@ import { createOptionsScreen } from './options-screen.js';
 import { createExitScreen } from './exit-screen.js';
 import { createGameController } from './game.js';
 import { createCustomiseScreen } from './customise-screen.js';
+import { resolveCollision } from './collision.js';
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -44,7 +45,7 @@ const car = createCar();
 scene.add(car.group);
 
 // Dummy robot opponent
-const robot = createRobot({ x: 10, z: -10 }, { angle: Math.PI * 1.25 });
+const robot = createRobot({ x: 10, z: -10 });
 scene.add(robot.group);
 
 // Input handling
@@ -92,6 +93,12 @@ function gameLoop(time) {
 
   robot.update(dt);
   robot.bounceOffWalls(ARENA_SIZE);
+
+  // Resolve collision between player car and dummy robot
+  resolveCollision(
+    { position: car.group.position, velocity: car.velocity, mass: car.mass, collisionRadius: car.collisionRadius },
+    { position: robot.group.position, velocity: robot.velocity, mass: robot.mass, collisionRadius: robot.collisionRadius }
+  );
 
   // Camera follows car
   const carPos = car.group.position;

@@ -39,30 +39,50 @@ describe('Robot', () => {
     expect(typeof robot.velocity.z).toBe('number');
   });
 
-  it('should have a non-zero initial velocity', () => {
+  it('should have zero velocity by default (static)', () => {
     const robot = createRobot();
-    const speed = Math.sqrt(robot.velocity.x ** 2 + robot.velocity.z ** 2);
-    expect(speed).toBeGreaterThan(0);
+    expect(robot.velocity.x).toBe(0);
+    expect(robot.velocity.z).toBe(0);
   });
 
-  it('should move when update(dt) is called', () => {
+  it('should stay still when update(dt) is called with zero velocity', () => {
     const robot = createRobot({ x: 0, z: 0 });
     const startX = robot.group.position.x;
     const startZ = robot.group.position.z;
     robot.update(0.1);
-    const movedX = robot.group.position.x !== startX;
-    const movedZ = robot.group.position.z !== startZ;
-    expect(movedX || movedZ).toBe(true);
+    expect(robot.group.position.x).toBe(startX);
+    expect(robot.group.position.z).toBe(startZ);
   });
 
-  it('should move proportionally to dt', () => {
+  it('should move proportionally to dt when velocity is set', () => {
     const robot1 = createRobot({ x: 0, z: 0 });
     const robot2 = createRobot({ x: 0, z: 0 });
+    robot1.velocity.x = 5;
+    robot1.velocity.z = 5;
+    robot2.velocity.x = 5;
+    robot2.velocity.z = 5;
     robot1.update(0.1);
     robot2.update(0.2);
     const dist1 = Math.abs(robot1.group.position.x) + Math.abs(robot1.group.position.z);
     const dist2 = Math.abs(robot2.group.position.x) + Math.abs(robot2.group.position.z);
     expect(dist2).toBeCloseTo(dist1 * 2, 5);
+  });
+
+  it('should expose a mass property', () => {
+    const robot = createRobot();
+    expect(typeof robot.mass).toBe('number');
+    expect(robot.mass).toBeGreaterThan(0);
+  });
+
+  it('should use a custom mass when provided', () => {
+    const robot = createRobot({}, { mass: 3 });
+    expect(robot.mass).toBe(3);
+  });
+
+  it('should expose a collisionRadius property', () => {
+    const robot = createRobot();
+    expect(typeof robot.collisionRadius).toBe('number');
+    expect(robot.collisionRadius).toBeGreaterThan(0);
   });
 
   it('should bounce off the left wall', () => {
@@ -124,5 +144,23 @@ describe('Robot', () => {
     robot.reset();
     expect(robot.group.position.x).toBe(5);
     expect(robot.group.position.z).toBe(5);
+  });
+
+  it('should apply friction to velocity on each update', () => {
+    const robot = createRobot({ x: 0, z: 0 });
+    robot.velocity.x = 10;
+    robot.velocity.z = 0;
+    robot.update(0.1);
+    expect(robot.velocity.x).toBeLessThan(10);
+    expect(robot.velocity.x).toBeGreaterThan(0);
+  });
+
+  it('should reset velocity to zero', () => {
+    const robot = createRobot({ x: 0, z: 0 });
+    robot.velocity.x = 10;
+    robot.velocity.z = 10;
+    robot.reset();
+    expect(robot.velocity.x).toBe(0);
+    expect(robot.velocity.z).toBe(0);
   });
 });

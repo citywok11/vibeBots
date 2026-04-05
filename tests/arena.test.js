@@ -43,3 +43,56 @@ describe('Arena', () => {
     });
   });
 });
+
+describe('Audience and Stands', () => {
+  it('should create 4 stand groups, one per arena side', () => {
+    const arena = createArena(50);
+    expect(arena.stands).toBeDefined();
+    expect(arena.stands).toHaveLength(4);
+    arena.stands.forEach(stand => {
+      expect(stand.isGroup).toBe(true);
+    });
+  });
+
+  it('should position all stands outside the arena boundary', () => {
+    const size = 50;
+    const arena = createArena(size);
+    const half = size / 2;
+    arena.stands.forEach(stand => {
+      const { x, z } = stand.position;
+      expect(Math.abs(x) > half || Math.abs(z) > half).toBe(true);
+    });
+  });
+
+  it('should give each stand multiple tier meshes', () => {
+    const arena = createArena(50);
+    arena.stands.forEach(stand => {
+      const tiers = stand.children.filter(c => c.isMesh);
+      expect(tiers.length).toBeGreaterThan(1);
+    });
+  });
+
+  it('should create audience figures on the stands', () => {
+    const arena = createArena(50);
+    expect(arena.audienceFigures).toBeDefined();
+    expect(arena.audienceFigures.length).toBeGreaterThan(0);
+    arena.audienceFigures.forEach(fig => {
+      expect(fig.isMesh).toBe(true);
+    });
+  });
+
+  it('should add all stand groups to the arena group', () => {
+    const arena = createArena(50);
+    arena.stands.forEach(stand => {
+      expect(arena.group.children).toContain(stand);
+    });
+  });
+
+  it('should scale stands proportionally with arena size', () => {
+    const small = createArena(30);
+    const large = createArena(80);
+    const smallStandWidth = small.stands[0].children[0].geometry.parameters.width;
+    const largeStandWidth = large.stands[0].children[0].geometry.parameters.width;
+    expect(largeStandWidth).toBeGreaterThan(smallStandWidth);
+  });
+});

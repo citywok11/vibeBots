@@ -284,6 +284,8 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     get flamethrowerActive() { return flamethrowerActive; },
     get rotation() { return rotation; },
     get velocity() { return velocity; },
+    get mass() { return mass; },
+    collisionRadius,
     accelerate,
     activateFlipper,
     activateFlamethrower,
