@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createCar } from '../src/car.js';
+import { createCar, MODEL_CATALOGUE, WHEEL_CATALOGUE, FLIPPER_CATALOGUE } from '../src/car.js';
 
 describe('Car', () => {
   it('should create a car with a mesh', () => {
@@ -1075,5 +1075,338 @@ describe('Car collision tilt (pitch and roll)', () => {
 
     // car1 should have more roll than car2 (car2's hit went to pitch instead)
     expect(Math.abs(roll1)).toBeGreaterThan(Math.abs(roll2));
+  });
+});
+
+describe('Component catalogues', () => {
+  it('MODEL_CATALOGUE should have at least 3 entries', () => {
+    expect(MODEL_CATALOGUE.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('every MODEL_CATALOGUE entry should have id, label, mass, width, height, depth, color', () => {
+    MODEL_CATALOGUE.forEach(spec => {
+      expect(typeof spec.id).toBe('string');
+      expect(typeof spec.label).toBe('string');
+      expect(typeof spec.mass).toBe('number');
+      expect(spec.mass).toBeGreaterThan(0);
+      expect(typeof spec.width).toBe('number');
+      expect(typeof spec.height).toBe('number');
+      expect(typeof spec.depth).toBe('number');
+    });
+  });
+
+  it('MODEL_CATALOGUE should include standard, wedge and heavy entries', () => {
+    const ids = MODEL_CATALOGUE.map(m => m.id);
+    expect(ids).toContain('standard');
+    expect(ids).toContain('wedge');
+    expect(ids).toContain('heavy');
+  });
+
+  it('model variants should have different mass values', () => {
+    const masses = MODEL_CATALOGUE.map(m => m.mass);
+    const unique = new Set(masses);
+    expect(unique.size).toBeGreaterThan(1);
+  });
+
+  it('WHEEL_CATALOGUE should have at least 3 entries', () => {
+    expect(WHEEL_CATALOGUE.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('every WHEEL_CATALOGUE entry should have id, label, radius, friction, velocityMult, color', () => {
+    WHEEL_CATALOGUE.forEach(spec => {
+      expect(typeof spec.id).toBe('string');
+      expect(typeof spec.label).toBe('string');
+      expect(typeof spec.radius).toBe('number');
+      expect(spec.radius).toBeGreaterThan(0);
+      expect(typeof spec.friction).toBe('number');
+      expect(typeof spec.velocityMult).toBe('number');
+    });
+  });
+
+  it('WHEEL_CATALOGUE should include standard, offroad and racing entries', () => {
+    const ids = WHEEL_CATALOGUE.map(w => w.id);
+    expect(ids).toContain('standard');
+    expect(ids).toContain('offroad');
+    expect(ids).toContain('racing');
+  });
+
+  it('wheel variants should have different friction values', () => {
+    const frictions = WHEEL_CATALOGUE.map(w => w.friction);
+    const unique = new Set(frictions);
+    expect(unique.size).toBeGreaterThan(1);
+  });
+
+  it('wheel variants should have different velocityMult values', () => {
+    const mults = WHEEL_CATALOGUE.map(w => w.velocityMult);
+    const unique = new Set(mults);
+    expect(unique.size).toBeGreaterThan(1);
+  });
+
+  it('FLIPPER_CATALOGUE should have at least 3 entries', () => {
+    expect(FLIPPER_CATALOGUE.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('every FLIPPER_CATALOGUE entry should have id, label, depth, power, maxAngle, upSpeed, downSpeed', () => {
+    FLIPPER_CATALOGUE.forEach(spec => {
+      expect(typeof spec.id).toBe('string');
+      expect(typeof spec.label).toBe('string');
+      expect(typeof spec.depth).toBe('number');
+      expect(spec.depth).toBeGreaterThan(0);
+      expect(typeof spec.power).toBe('number');
+      expect(typeof spec.maxAngle).toBe('number');
+      expect(typeof spec.upSpeed).toBe('number');
+      expect(typeof spec.downSpeed).toBe('number');
+    });
+  });
+
+  it('FLIPPER_CATALOGUE should include standard, heavy and light entries', () => {
+    const ids = FLIPPER_CATALOGUE.map(f => f.id);
+    expect(ids).toContain('standard');
+    expect(ids).toContain('heavy');
+    expect(ids).toContain('light');
+  });
+
+  it('flipper variants should have different power values', () => {
+    const powers = FLIPPER_CATALOGUE.map(f => f.power);
+    const unique = new Set(powers);
+    expect(unique.size).toBeGreaterThan(1);
+  });
+});
+
+describe('Car model variant physics', () => {
+  it('should expose a flipperPower getter', () => {
+    const car = createCar();
+    expect(typeof car.flipperPower).toBe('number');
+    expect(car.flipperPower).toBeGreaterThan(0);
+  });
+
+  it('should expose a flipperDepth getter', () => {
+    const car = createCar();
+    expect(typeof car.flipperDepth).toBe('number');
+    expect(car.flipperDepth).toBeGreaterThan(0);
+  });
+
+  it('should expose a flipperMaxAngle getter', () => {
+    const car = createCar();
+    expect(typeof car.flipperMaxAngle).toBe('number');
+    expect(car.flipperMaxAngle).toBeGreaterThan(0);
+  });
+
+  it('applyCustomisation with wedge model should change mass to wedge mass', () => {
+    const car = createCar();
+    car.applyCustomisation({ model: 'wedge' });
+    const wedgeSpec = MODEL_CATALOGUE.find(m => m.id === 'wedge');
+    expect(car.mass).toBeCloseTo(wedgeSpec.mass, 5);
+  });
+
+  it('applyCustomisation with heavy model should change mass to heavy mass', () => {
+    const car = createCar();
+    car.applyCustomisation({ model: 'heavy' });
+    const heavySpec = MODEL_CATALOGUE.find(m => m.id === 'heavy');
+    expect(car.mass).toBeCloseTo(heavySpec.mass, 5);
+  });
+
+  it('applyCustomisation with wedge model should show wedge body and hide others', () => {
+    const car = createCar();
+    car.applyCustomisation({ model: 'wedge' });
+    expect(car.mesh.visible).toBe(true);
+    expect(car.mesh.geometry.parameters.width).toBeCloseTo(
+      MODEL_CATALOGUE.find(m => m.id === 'wedge').width, 5
+    );
+  });
+
+  it('applyCustomisation with heavy model should show heavy body and hide others', () => {
+    const car = createCar();
+    car.applyCustomisation({ model: 'heavy' });
+    expect(car.mesh.visible).toBe(true);
+    expect(car.mesh.geometry.parameters.width).toBeCloseTo(
+      MODEL_CATALOGUE.find(m => m.id === 'heavy').width, 5
+    );
+  });
+
+  it('standard model mass should be restored when switching back to standard', () => {
+    const car = createCar();
+    const stdMass = MODEL_CATALOGUE.find(m => m.id === 'standard').mass;
+    car.applyCustomisation({ model: 'heavy' });
+    car.applyCustomisation({ model: 'standard' });
+    expect(car.mass).toBeCloseTo(stdMass, 5);
+  });
+});
+
+describe('Car wheel variant physics', () => {
+  it('applyCustomisation with offroad wheels should reduce velocity from accelerate', () => {
+    const carStd = createCar();
+    carStd.accelerate(10);
+    const stdVel = Math.abs(carStd.velocity.z);
+
+    const carOff = createCar();
+    carOff.applyCustomisation({ wheels: 'offroad' });
+    carOff.accelerate(10);
+    const offVel = Math.abs(carOff.velocity.z);
+
+    const offroadSpec = WHEEL_CATALOGUE.find(w => w.id === 'offroad');
+    expect(offroadSpec.velocityMult).toBeLessThan(1);
+    expect(offVel).toBeLessThan(stdVel);
+  });
+
+  it('applyCustomisation with racing wheels should increase velocity from accelerate', () => {
+    const carStd = createCar();
+    carStd.accelerate(10);
+    const stdVel = Math.abs(carStd.velocity.z);
+
+    const carRace = createCar();
+    carRace.applyCustomisation({ wheels: 'racing' });
+    carRace.accelerate(10);
+    const raceVel = Math.abs(carRace.velocity.z);
+
+    const racingSpec = WHEEL_CATALOGUE.find(w => w.id === 'racing');
+    expect(racingSpec.velocityMult).toBeGreaterThan(1);
+    expect(raceVel).toBeGreaterThan(stdVel);
+  });
+
+  it('offroad wheels should have higher friction (more deceleration) than racing', () => {
+    const offroadSpec = WHEEL_CATALOGUE.find(w => w.id === 'offroad');
+    const racingSpec = WHEEL_CATALOGUE.find(w => w.id === 'racing');
+    expect(offroadSpec.friction).toBeLessThan(racingSpec.friction);
+  });
+
+  it('applyCustomisation with offroad wheels should apply offroad friction in update', () => {
+    const carStd = createCar();
+    carStd.applyCustomisation({ wheels: 'standard' });
+    carStd.accelerate(10);
+    const velBefore = Math.abs(carStd.velocity.z);
+    carStd.update(0.1);
+    const decayStd = velBefore - Math.abs(carStd.velocity.z);
+
+    const carOff = createCar();
+    carOff.applyCustomisation({ wheels: 'offroad' });
+    carOff.accelerate(10);
+    const velBefore2 = Math.abs(carOff.velocity.z);
+    carOff.update(0.1);
+    const decayOff = velBefore2 - Math.abs(carOff.velocity.z);
+
+    // Off-road friction is lower (decelerates faster per update step)
+    const offroadSpec = WHEEL_CATALOGUE.find(w => w.id === 'offroad');
+    const stdSpec = WHEEL_CATALOGUE.find(w => w.id === 'standard');
+    expect(offroadSpec.friction).toBeLessThan(stdSpec.friction);
+    expect(decayOff).toBeGreaterThan(decayStd);
+  });
+
+  it('switching to offroad wheels should show offroad wheel meshes', () => {
+    const car = createCar();
+    car.applyCustomisation({ wheels: 'offroad' });
+    car.wheels.forEach(w => { expect(w.visible).toBe(true); });
+  });
+
+  it('switching to racing wheels should show racing wheel meshes', () => {
+    const car = createCar();
+    car.applyCustomisation({ wheels: 'racing' });
+    car.wheels.forEach(w => { expect(w.visible).toBe(true); });
+  });
+
+  it('switching wheel type updates the active wheel set returned by car.wheels', () => {
+    const car = createCar();
+    car.applyCustomisation({ wheels: 'standard' });
+    const stdWheels = car.wheels;
+    car.applyCustomisation({ wheels: 'offroad' });
+    const offWheels = car.wheels;
+    expect(stdWheels).not.toBe(offWheels);
+  });
+});
+
+describe('Car flipper variant physics', () => {
+  it('applyCustomisation with heavy flipper should update flipperPower', () => {
+    const car = createCar();
+    car.applyCustomisation({ flipper: 'heavy' });
+    const spec = FLIPPER_CATALOGUE.find(f => f.id === 'heavy');
+    expect(car.flipperPower).toBeCloseTo(spec.power, 5);
+  });
+
+  it('applyCustomisation with light flipper should update flipperPower', () => {
+    const car = createCar();
+    car.applyCustomisation({ flipper: 'light' });
+    const spec = FLIPPER_CATALOGUE.find(f => f.id === 'light');
+    expect(car.flipperPower).toBeCloseTo(spec.power, 5);
+  });
+
+  it('heavy flipper should have greater depth than standard', () => {
+    const car = createCar();
+    const stdDepth = car.flipperDepth;
+    car.applyCustomisation({ flipper: 'heavy' });
+    expect(car.flipperDepth).toBeGreaterThan(stdDepth);
+  });
+
+  it('light flipper should have smaller depth than standard', () => {
+    const car = createCar();
+    const stdDepth = car.flipperDepth;
+    car.applyCustomisation({ flipper: 'light' });
+    expect(car.flipperDepth).toBeLessThan(stdDepth);
+  });
+
+  it('heavy flipper maxAngle should be greater than standard maxAngle', () => {
+    const car = createCar();
+    const stdAngle = car.flipperMaxAngle;
+    car.applyCustomisation({ flipper: 'heavy' });
+    expect(car.flipperMaxAngle).toBeGreaterThan(stdAngle);
+  });
+
+  it('light flipper should animate faster than standard (higher upSpeed)', () => {
+    const lightSpec = FLIPPER_CATALOGUE.find(f => f.id === 'light');
+    const stdSpec = FLIPPER_CATALOGUE.find(f => f.id === 'standard');
+    expect(lightSpec.upSpeed).toBeGreaterThan(stdSpec.upSpeed);
+  });
+
+  it('heavy flipper should animate slower than standard (lower upSpeed)', () => {
+    const heavySpec = FLIPPER_CATALOGUE.find(f => f.id === 'heavy');
+    const stdSpec = FLIPPER_CATALOGUE.find(f => f.id === 'standard');
+    expect(heavySpec.upSpeed).toBeLessThan(stdSpec.upSpeed);
+  });
+
+  it('switching to heavy flipper should show heavy flipper mesh', () => {
+    const car = createCar();
+    car.applyCustomisation({ flipper: 'heavy' });
+    expect(car.flipper.visible).toBe(true);
+    const spec = FLIPPER_CATALOGUE.find(f => f.id === 'heavy');
+    expect(car.flipper.geometry.parameters.depth).toBeCloseTo(spec.depth, 5);
+  });
+
+  it('switching to light flipper should show light flipper mesh', () => {
+    const car = createCar();
+    car.applyCustomisation({ flipper: 'light' });
+    expect(car.flipper.visible).toBe(true);
+    const spec = FLIPPER_CATALOGUE.find(f => f.id === 'light');
+    expect(car.flipper.geometry.parameters.depth).toBeCloseTo(spec.depth, 5);
+  });
+
+  it('heavy flipper variant should animate more slowly than standard', () => {
+    const carStd = createCar();
+    carStd.applyCustomisation({ flipper: 'standard' });
+    carStd.activateFlipper();
+    carStd.update(0.05);
+    const stdAngle = carStd.flipperAngle;
+
+    const carHeavy = createCar();
+    carHeavy.applyCustomisation({ flipper: 'heavy' });
+    carHeavy.activateFlipper();
+    carHeavy.update(0.05);
+    const heavyAngle = carHeavy.flipperAngle;
+
+    expect(heavyAngle).toBeLessThan(stdAngle);
+  });
+
+  it('light flipper variant should animate faster than standard', () => {
+    const carStd = createCar();
+    carStd.applyCustomisation({ flipper: 'standard' });
+    carStd.activateFlipper();
+    carStd.update(0.02);
+    const stdAngle = carStd.flipperAngle;
+
+    const carLight = createCar();
+    carLight.applyCustomisation({ flipper: 'light' });
+    carLight.activateFlipper();
+    carLight.update(0.02);
+    const lightAngle = carLight.flipperAngle;
+
+    expect(lightAngle).toBeGreaterThan(stdAngle);
   });
 });

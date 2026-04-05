@@ -1,46 +1,86 @@
+import { MODEL_CATALOGUE, WHEEL_CATALOGUE, FLIPPER_CATALOGUE } from './car.js';
+
 const CATALOGUE = {
-  models: [{ id: 'standard', label: 'Standard' }],
-  wheels: [{ id: 'standard', label: 'Standard' }],
-  flippers: [{ id: 'standard', label: 'Standard' }],
+  models: MODEL_CATALOGUE,
+  wheels: WHEEL_CATALOGUE,
+  flippers: FLIPPER_CATALOGUE,
   flamethrowers: [{ id: 'standard', label: 'Standard' }],
 };
 
-function createModelVisual() {
+function createModelVisual(item) {
   const wrap = document.createElement('div');
   wrap.style.cssText = 'position: relative; width: 70px; height: 70px;';
 
-  // 4 wheels
-  const wheelPositions = [
-    { top: 10, left: 7 },
-    { top: 10, left: 53 },
-    { top: 48, left: 7 },
-    { top: 48, left: 53 },
-  ];
-  wheelPositions.forEach(pos => {
-    const w = document.createElement('div');
-    w.style.cssText = `position: absolute; top: ${pos.top}px; left: ${pos.left}px; width: 10px; height: 10px; background: #222; border-radius: 50%; border: 1px solid #555;`;
-    wrap.appendChild(w);
-  });
+  const colors = { standard: '#ff4444', wedge: '#ff8800', heavy: '#4488ff' };
+  const bodyColor = colors[item.id] || '#ff4444';
 
-  // Body
-  const body = document.createElement('div');
-  body.style.cssText = 'position: absolute; top: 14px; left: 14px; width: 42px; height: 38px; background: #ff4444; border-radius: 2px;';
-  wrap.appendChild(body);
-
-  // Flipper at front
-  const flipper = document.createElement('div');
-  flipper.style.cssText = 'position: absolute; top: 10px; left: 14px; width: 42px; height: 5px; background: #ccc; border-radius: 1px;';
-  wrap.appendChild(flipper);
+  if (item.id === 'wedge') {
+    // Wide, flat shape
+    ['7', '53'].forEach(left => {
+      const w = document.createElement('div');
+      w.style.cssText = `position: absolute; top: 14px; left: ${left}px; width: 9px; height: 9px; background: #222; border-radius: 50%; border: 1px solid #555;`;
+      wrap.appendChild(w);
+    });
+    [{ top: 48, left: 7 }, { top: 48, left: 53 }].forEach(pos => {
+      const w = document.createElement('div');
+      w.style.cssText = `position: absolute; top: ${pos.top}px; left: ${pos.left}px; width: 9px; height: 9px; background: #222; border-radius: 50%; border: 1px solid #555;`;
+      wrap.appendChild(w);
+    });
+    const body = document.createElement('div');
+    body.style.cssText = `position: absolute; top: 18px; left: 10px; width: 50px; height: 28px; background: ${bodyColor}; border-radius: 2px;`;
+    wrap.appendChild(body);
+  } else if (item.id === 'heavy') {
+    // Tall, wide shape
+    ['5', '55'].forEach(left => {
+      const w = document.createElement('div');
+      w.style.cssText = `position: absolute; top: 8px; left: ${left}px; width: 10px; height: 10px; background: #222; border-radius: 50%; border: 1px solid #555;`;
+      wrap.appendChild(w);
+    });
+    [{ top: 50, left: 5 }, { top: 50, left: 55 }].forEach(pos => {
+      const w = document.createElement('div');
+      w.style.cssText = `position: absolute; top: ${pos.top}px; left: ${pos.left}px; width: 10px; height: 10px; background: #222; border-radius: 50%; border: 1px solid #555;`;
+      wrap.appendChild(w);
+    });
+    const body = document.createElement('div');
+    body.style.cssText = `position: absolute; top: 10px; left: 13px; width: 44px; height: 50px; background: ${bodyColor}; border-radius: 2px;`;
+    wrap.appendChild(body);
+  } else {
+    // Standard: default layout
+    const wheelPositions = [
+      { top: 10, left: 7 },
+      { top: 10, left: 53 },
+      { top: 48, left: 7 },
+      { top: 48, left: 53 },
+    ];
+    wheelPositions.forEach(pos => {
+      const w = document.createElement('div');
+      w.style.cssText = `position: absolute; top: ${pos.top}px; left: ${pos.left}px; width: 10px; height: 10px; background: #222; border-radius: 50%; border: 1px solid #555;`;
+      wrap.appendChild(w);
+    });
+    const body = document.createElement('div');
+    body.style.cssText = `position: absolute; top: 14px; left: 14px; width: 42px; height: 38px; background: ${bodyColor}; border-radius: 2px;`;
+    wrap.appendChild(body);
+    const flipperEl = document.createElement('div');
+    flipperEl.style.cssText = `position: absolute; top: 10px; left: 14px; width: 42px; height: 5px; background: #ccc; border-radius: 1px;`;
+    wrap.appendChild(flipperEl);
+  }
 
   return wrap;
 }
 
-function createWheelVisual() {
+function createWheelVisual(item) {
   const wrap = document.createElement('div');
   wrap.style.cssText = 'position: relative; width: 70px; height: 70px; display: flex; align-items: center; justify-content: center;';
 
+  const sizes = { standard: 46, offroad: 56, racing: 34 };
+  const colors = { standard: '#2a2a2a', offroad: '#1a2a10', racing: '#2a2a00' };
+  const borderColors = { standard: '#444', offroad: '#3a5a20', racing: '#888800' };
+  const size = sizes[item.id] || 46;
+  const bg = colors[item.id] || '#2a2a2a';
+  const border = borderColors[item.id] || '#444';
+
   const wheel = document.createElement('div');
-  wheel.style.cssText = 'position: relative; width: 46px; height: 46px; background: #2a2a2a; border-radius: 50%; border: 5px solid #444; display: flex; align-items: center; justify-content: center;';
+  wheel.style.cssText = `position: relative; width: ${size}px; height: ${size}px; background: ${bg}; border-radius: 50%; border: 5px solid ${border}; display: flex; align-items: center; justify-content: center;`;
 
   const hub = document.createElement('div');
   hub.style.cssText = 'width: 10px; height: 10px; background: #888; border-radius: 50%;';
@@ -50,16 +90,22 @@ function createWheelVisual() {
   return wrap;
 }
 
-function createFlipperVisual() {
+function createFlipperVisual(item) {
   const wrap = document.createElement('div');
   wrap.style.cssText = 'position: relative; width: 70px; height: 70px; display: flex; align-items: center; justify-content: center;';
 
-  const outer = document.createElement('div');
-  outer.style.cssText = 'position: relative; width: 58px; height: 20px;';
+  const widths = { standard: 58, heavy: 58, light: 44 };
+  const rampHeights = { standard: 12, heavy: 18, light: 8 };
+  const colors = { standard: '#ccc', heavy: '#888', light: '#eee' };
+  const w = widths[item.id] || 58;
+  const rh = rampHeights[item.id] || 12;
+  const color = colors[item.id] || '#ccc';
 
-  // Flipper wedge drawn using two divs: a body and a slanted top edge overlay
+  const outer = document.createElement('div');
+  outer.style.cssText = `position: relative; width: ${w}px; height: ${rh + 10}px;`;
+
   const base = document.createElement('div');
-  base.style.cssText = 'position: absolute; bottom: 0; left: 0; width: 58px; height: 10px; background: #ccc; border-radius: 1px 1px 2px 2px;';
+  base.style.cssText = `position: absolute; bottom: 0; left: 0; width: ${w}px; height: 10px; background: ${color}; border-radius: 1px 1px 2px 2px;`;
 
   const ramp = document.createElement('div');
   ramp.style.cssText = `
@@ -68,8 +114,8 @@ function createFlipperVisual() {
     right: 0;
     width: 0;
     height: 0;
-    border-left: 58px solid transparent;
-    border-bottom: 12px solid #ccc;
+    border-left: ${w}px solid transparent;
+    border-bottom: ${rh}px solid ${color};
   `;
 
   outer.appendChild(ramp);
@@ -79,7 +125,7 @@ function createFlipperVisual() {
   return wrap;
 }
 
-function createFlamethrowerVisual() {
+function createFlamethrowerVisual(_item) {
   const wrap = document.createElement('div');
   wrap.style.cssText = 'position: relative; width: 70px; height: 70px; display: flex; align-items: center; justify-content: center;';
 
@@ -136,7 +182,7 @@ function createItemButton(item, isSelected, visualFactory) {
   `;
   btn.style.borderColor = isSelected ? '#ffd700' : '#444';
   if (isSelected) btn.style.boxShadow = '0 0 12px rgba(255, 215, 0, 0.45)';
-  btn.appendChild(visualFactory());
+  btn.appendChild(visualFactory(item));
   return btn;
 }
 
