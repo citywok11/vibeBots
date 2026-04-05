@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 
 export const DEFAULT_PIT_SIZE = 6;
-const PIT_DEPTH = 6;
-const LOWER_SPEED = 3; // units per second
+const PIT_DEPTH = 2;
+const LOWER_SPEED = 0.2; // units per second (takes 10 seconds to lower fully)
 const FRAME_THICKNESS = 0.3;
 const FRAME_HEIGHT = 0.1;
 const FRAME_COLOR = 0xffaa00;
@@ -46,6 +46,13 @@ export function createPit(arenaSize, { pitSize = DEFAULT_PIT_SIZE } = {}) {
   let _isLowering = false;
   let coverY = 0;
 
+  function reset() {
+    _isOpen = false;
+    _isLowering = false;
+    coverY = 0;
+    cover.position.y = 0;
+  }
+
   function activate() {
     if (!_isOpen && !_isLowering) {
       _isLowering = true;
@@ -73,5 +80,5 @@ export function createPit(arenaSize, { pitSize = DEFAULT_PIT_SIZE } = {}) {
   function isLowering() { return _isLowering; }
   function getCoverY() { return coverY; }
 
-  return { group, cover, depthFloor, activate, update, containsPoint, isOpen, isLowering, getCoverY, pitSize };
+  return { group, cover, depthFloor, activate, reset, update, containsPoint, isOpen, isLowering, getCoverY, pitSize };
 }

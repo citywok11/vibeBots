@@ -155,4 +155,73 @@ describe('Pit', () => {
     expect(pit.group.children).toContain(pit.cover);
     expect(pit.group.children).toContain(pit.depthFloor);
   });
+
+  it('should lower the cover to exactly -2 when fully open', () => {
+    const pit = createPit(50);
+    pit.activate();
+    for (let i = 0; i < 200; i++) pit.update(0.1);
+    expect(pit.cover.position.y).toBe(-2);
+  });
+
+  it('should not be fully open after 9 seconds', () => {
+    const pit = createPit(50);
+    pit.activate();
+    for (let i = 0; i < 90; i++) pit.update(0.1);
+    expect(pit.isOpen()).toBe(false);
+  });
+
+  it('should be fully open after 10 seconds', () => {
+    const pit = createPit(50);
+    pit.activate();
+    for (let i = 0; i < 100; i++) pit.update(0.1);
+    expect(pit.isOpen()).toBe(true);
+  });
+
+  it('should expose a reset() method', () => {
+    const pit = createPit(50);
+    expect(typeof pit.reset).toBe('function');
+  });
+
+  it('reset() should restore cover position to y=0', () => {
+    const pit = createPit(50);
+    pit.activate();
+    pit.update(1);
+    pit.reset();
+    expect(pit.cover.position.y).toBe(0);
+  });
+
+  it('reset() should set isOpen() to false', () => {
+    const pit = createPit(50);
+    pit.activate();
+    for (let i = 0; i < 200; i++) pit.update(0.1);
+    expect(pit.isOpen()).toBe(true);
+    pit.reset();
+    expect(pit.isOpen()).toBe(false);
+  });
+
+  it('reset() should set isLowering() to false', () => {
+    const pit = createPit(50);
+    pit.activate();
+    pit.update(0.1);
+    expect(pit.isLowering()).toBe(true);
+    pit.reset();
+    expect(pit.isLowering()).toBe(false);
+  });
+
+  it('reset() should set getCoverY() to 0', () => {
+    const pit = createPit(50);
+    pit.activate();
+    pit.update(1);
+    pit.reset();
+    expect(pit.getCoverY()).toBe(0);
+  });
+
+  it('reset() should allow the pit to be activated again', () => {
+    const pit = createPit(50);
+    pit.activate();
+    for (let i = 0; i < 200; i++) pit.update(0.1);
+    pit.reset();
+    pit.activate();
+    expect(pit.isLowering()).toBe(true);
+  });
 });

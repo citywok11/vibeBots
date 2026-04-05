@@ -239,6 +239,7 @@ function gameLoop(time) {
 function startLoop() {
   car.reset();
   robot.reset();
+  pit.reset();
   carFalling = false;
   robotFalling = false;
   carRidingCover = false;
