@@ -2,7 +2,11 @@ import * as THREE from 'three';
 import { createArena } from './arena.js';
 import { createCar, CAR_BODY_WIDTH, CAR_BODY_DEPTH } from './car.js';
 import { createRobot, ROBOT_BODY_WIDTH, ROBOT_BODY_DEPTH } from './robot.js';
-import { computeWheelWorldXZ, computePitGroundingFromWheels } from './pit-support.js';
+import {
+  computeWheelWorldXZ,
+  computePitGroundingFromWheels,
+  createPitWheelHysteresis,
+} from './pit-support.js';
 import { createInputManager } from './input.js';
 import { createMenu } from './menu.js';
 import { createRoguelikeMenu } from './roguelike-menu.js';
@@ -106,6 +110,9 @@ const pitTipFall = {
   robot: { velocity: 0, fallAccum: 0 },
 };
 
+const carPitWheelHyst = createPitWheelHysteresis();
+const robotPitWheelHyst = createPitWheelHysteresis();
+
 function gameLoop(time) {
   const dt = (time - lastTime) / 1000;
   lastTime = time;
@@ -143,7 +150,6 @@ function gameLoop(time) {
   car.update(dt);
   car.bounceOffWalls(ARENA_SIZE);
 
-  robot.updateAI(dt, car.group.position);
   robot.update(dt);
   robot.bounceOffWalls(ARENA_SIZE);
 
@@ -155,6 +161,7 @@ function gameLoop(time) {
       setTrapped: v => { carTrapped = v; },
       width: CAR_BODY_WIDTH,
       depth: CAR_BODY_DEPTH,
+      wheelHyst: carPitWheelHyst,
     },
     {
       entity: robot,
@@ -162,8 +169,9 @@ function gameLoop(time) {
       setTrapped: v => { robotTrapped = v; },
       width: ROBOT_BODY_WIDTH,
       depth: ROBOT_BODY_DEPTH,
+      wheelHyst: robotPitWheelHyst,
     },
-  ].forEach(({ entity, trapped, setTrapped, width, depth }) => {
+  ].forEach(({ entity, trapped, setTrapped, width, depth, wheelHyst }) => {
     const cx = entity.group.position.x;
     const cz = entity.group.position.z;
     const yaw = entity.group.rotation.y;
@@ -183,8 +191,9 @@ function gameLoop(time) {
       entity.applyFrameRotation(0, 0);
     } else {
       const wheels = computeWheelWorldXZ(cx, cz, yaw, width, depth, entity.wheelThicknessHalf);
-      const { supportYOffset, pitch, roll, heightSpread } = computePitGroundingFromWheels(
+      const { supportYOffset, pitch, roll, tippingSpread } = computePitGroundingFromWheels(
         wheels, pit, width, depth, entity.wheelThicknessHalf,
+        { hysteresis: wheelHyst },
       );
       const refY = entity.groundY + supportYOffset;
       const pitSurfaceY = entity.groundY + pit.getCoverY();
@@ -198,7 +207,7 @@ function gameLoop(time) {
         );
       }
 
-      const tipping = heightSpread > PIT_TIP_SPREAD_THRESHOLD;
+      const tipping = tippingSpread > PIT_TIP_SPREAD_THRESHOLD;
       if (tipping) {
         tip.velocity += PIT_TIP_GRAVITY * dt;
         tip.velocity = Math.min(tip.velocity, PIT_TIP_MAX_DOWN_SPEED);
@@ -277,6 +286,8 @@ function startLoop() {
   pitTipFall.car.fallAccum = 0;
   pitTipFall.robot.velocity = 0;
   pitTipFall.robot.fallAccum = 0;
+  carPitWheelHyst.reset();
+  robotPitWheelHyst.reset();
   renderer.domElement.style.display = 'block';
   lastTime = performance.now();
   if (!rafId) rafId = requestAnimationFrame(gameLoop);

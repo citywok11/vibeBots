@@ -3,6 +3,8 @@ import {
   computeWheelWorldXZ,
   surfaceYOffsetAtPit,
   computePitGroundingFromWheels,
+  createPitWheelHysteresis,
+  PIT_TIPPING_SPREAD_DEADBAND_M,
 } from '../src/pit-support.js';
 
 describe('pit-support', () => {
@@ -46,6 +48,7 @@ describe('pit-support', () => {
       expect(g.supportYOffset).toBe(-0.4);
       expect(g.minWheelOffset).toBe(-0.4);
       expect(g.heightSpread).toBe(0);
+      expect(g.tippingSpread).toBe(0);
       expect(g.pitch).toBeCloseTo(0, 5);
       expect(g.roll).toBeCloseTo(0, 5);
     });
@@ -60,8 +63,56 @@ describe('pit-support', () => {
       expect(g.supportYOffset).toBe(0);
       expect(g.minWheelOffset).toBe(-0.8);
       expect(g.heightSpread).toBe(0.8);
+      expect(g.tippingSpread).toBeCloseTo(0.8 - PIT_TIPPING_SPREAD_DEADBAND_M, 5);
       expect(Math.abs(g.roll)).toBeGreaterThan(0.05);
       expect(g.pitch).toBeCloseTo(0, 5);
+    });
+
+    it('tippingSpread damps tiny rim spreads (no false tipping from mm-scale straddle)', () => {
+      const pit = mockPit(-0.01);
+      const wheels = [
+        { x: 0, z: 0 }, { x: 0.5, z: 0 }, { x: 0, z: 0.5 },
+        { x: 5, z: 0 },
+      ];
+      const g = computePitGroundingFromWheels(wheels, pit, 2, 3, 0.15);
+      expect(g.heightSpread).toBeCloseTo(0.01, 5);
+      expect(g.tippingSpread).toBe(0);
+    });
+  });
+
+  describe('createPitWheelHysteresis', () => {
+    it('keeps pit surface under a wheel that has crossed the strict edge slightly', () => {
+      const pit = { pitSize: 6, getCoverY: () => -0.3 };
+      const h = createPitWheelHysteresis();
+      const inside = [
+        { x: 1, z: 0 }, { x: 1, z: 0 },
+        { x: 1, z: 0.5 }, { x: 1, z: 0.5 },
+      ];
+      computePitGroundingFromWheels(inside, pit, 2, 3, 0.15, { hysteresis: h });
+      const pastStrictEdge = [
+        { x: 3.04, z: 0 }, { x: 3.04, z: 0 },
+        { x: 3.04, z: 0.5 }, { x: 3.04, z: 0.5 },
+      ];
+      const g = computePitGroundingFromWheels(pastStrictEdge, pit, 2, 3, 0.15, { hysteresis: h });
+      expect(surfaceYOffsetAtPit(3.04, 0, pit)).toBe(0);
+      expect(g.supportYOffset).toBe(-0.3);
+      expect(g.minWheelOffset).toBe(-0.3);
+    });
+
+    it('reset() clears latch so strict bounds apply again', () => {
+      const pit = { pitSize: 6, getCoverY: () => -0.5 };
+      const h = createPitWheelHysteresis();
+      computePitGroundingFromWheels(
+        [{ x: 0, z: 0 }, { x: 0, z: 0 }, { x: 0, z: 0 }, { x: 0, z: 0 }],
+        pit, 2, 3, 0.15, { hysteresis: h },
+      );
+      h.reset();
+      const edge = [
+        { x: 3.04, z: 0 }, { x: 3.04, z: 0 },
+        { x: 3.04, z: 0 }, { x: 3.04, z: 0 },
+      ];
+      const g = computePitGroundingFromWheels(edge, pit, 2, 3, 0.15, { hysteresis: h });
+      expect(g.supportYOffset).toBe(0);
     });
   });
 });

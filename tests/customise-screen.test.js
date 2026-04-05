@@ -275,4 +275,60 @@ describe('CustomiseScreen', () => {
     btn.click();
     expect(screen.getSelections().flipper).toBe('heavy');
   });
+
+  it('should have a BOT AI section', () => {
+    screen.open();
+    const section = container.querySelector('.customise-section-botAI');
+    expect(section).not.toBeNull();
+    const heading = section.querySelector('.customise-section-title');
+    expect(heading.textContent).toBe('BOT AI');
+  });
+
+  it('should default botAI to false in getSelections', () => {
+    expect(screen.getSelections().botAI).toBe(false);
+  });
+
+  it('should have a bot AI toggle button', () => {
+    screen.open();
+    const btn = container.querySelector('.customise-bot-ai-button');
+    expect(btn).not.toBeNull();
+  });
+
+  it('should show OFF text when bot AI is disabled', () => {
+    screen.open();
+    const btn = container.querySelector('.customise-bot-ai-button');
+    expect(btn.textContent).toBe('OFF');
+  });
+
+  it('should toggle botAI to true when clicked', () => {
+    screen.open();
+    const btn = container.querySelector('.customise-bot-ai-button');
+    btn.click();
+    expect(screen.getSelections().botAI).toBe(true);
+    expect(btn.textContent).toBe('ON');
+  });
+
+  it('should toggle botAI back to false when clicked twice', () => {
+    screen.open();
+    const btn = container.querySelector('.customise-bot-ai-button');
+    btn.click();
+    btn.click();
+    expect(screen.getSelections().botAI).toBe(false);
+    expect(btn.textContent).toBe('OFF');
+  });
+
+  it('should highlight bot AI button with gold border when enabled', () => {
+    screen.open();
+    const btn = container.querySelector('.customise-bot-ai-button');
+    btn.click();
+    expect(btn.style.borderColor).toBe('rgb(255, 215, 0)');
+  });
+
+  it('should remove gold border from bot AI button when disabled', () => {
+    screen.open();
+    const btn = container.querySelector('.customise-bot-ai-button');
+    btn.click();
+    btn.click();
+    expect(btn.style.borderColor).not.toBe('rgb(255, 215, 0)');
+  });
 });

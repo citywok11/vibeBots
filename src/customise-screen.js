@@ -254,6 +254,7 @@ export function createCustomiseScreen(container) {
     wheels: null,
     flipper: null,
     flamethrower: null,
+    botAI: false,
   };
 
   // Overlay
@@ -302,6 +303,51 @@ export function createCustomiseScreen(container) {
   panel.appendChild(createSection('Wheels', CATALOGUE.wheels, 'wheels', selections, createWheelVisual));
   panel.appendChild(createSection('Flipper', CATALOGUE.flippers, 'flipper', selections, createFlipperVisual));
   panel.appendChild(createSection('Flamethrower', CATALOGUE.flamethrowers, 'flamethrower', selections, createFlamethrowerVisual));
+
+  // Bot AI toggle
+  const aiSection = document.createElement('div');
+  aiSection.className = 'customise-section customise-section-botAI';
+  aiSection.style.cssText = 'margin-bottom: 28px;';
+
+  const aiHeading = document.createElement('h2');
+  aiHeading.className = 'customise-section-title';
+  aiHeading.textContent = 'BOT AI';
+  aiHeading.style.cssText = `
+    margin: 0 0 12px 0;
+    font-size: 13px;
+    letter-spacing: 3px;
+    color: #aaa;
+  `;
+  aiSection.appendChild(aiHeading);
+
+  const aiBtn = document.createElement('button');
+  aiBtn.className = 'customise-bot-ai-button';
+  aiBtn.style.cssText = `
+    padding: 10px 24px;
+    font-family: monospace;
+    font-size: 14px;
+    background: #2a2a3e;
+    color: #fff;
+    border-width: 3px;
+    border-style: solid;
+    border-radius: 8px;
+    cursor: pointer;
+  `;
+
+  function updateAIButton() {
+    aiBtn.textContent = selections.botAI ? 'ON' : 'OFF';
+    aiBtn.style.borderColor = selections.botAI ? '#ffd700' : '#444';
+    aiBtn.style.boxShadow = selections.botAI ? '0 0 12px rgba(255, 215, 0, 0.45)' : '';
+  }
+  updateAIButton();
+
+  aiBtn.addEventListener('click', () => {
+    selections.botAI = !selections.botAI;
+    updateAIButton();
+  });
+
+  aiSection.appendChild(aiBtn);
+  panel.appendChild(aiSection);
 
   // Back button
   const backBtn = document.createElement('button');

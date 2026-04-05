@@ -187,8 +187,10 @@ export function createPit(arenaSize, { pitSize = DEFAULT_PIT_SIZE } = {}) {
   function update(dt) {
     elapsedTime += dt;
     depthMaterial.uniforms.uTime.value = elapsedTime;
+    // Cap lowering step only so a long frame cannot teleport the cover past contact tolerances.
+    const lowerStep = Math.min(Math.max(dt, 0), 0.08);
     if (_isLowering && !_isOpen) {
-      coverY -= LOWER_SPEED * dt;
+      coverY -= LOWER_SPEED * lowerStep;
       cover.position.y = coverY;
       warningSign.position.y = coverY + WARN_THICKNESS;
       coverMaterial.uniforms.uDepth.value = (-coverY) / PIT_DEPTH;
