@@ -133,14 +133,15 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
 
   let rotation = 0;
   const velocity = { x: 0, z: 0 };
+  let hasWheels = true;
 
   function applyCustomisation(selections = {}) {
     if ('model' in selections) {
       body.visible = selections.model !== null;
     }
     if ('wheels' in selections) {
-      const show = selections.wheels !== null;
-      wheels.forEach(w => { w.visible = show; });
+      hasWheels = selections.wheels !== null;
+      wheels.forEach(w => { w.visible = hasWheels; });
     }
     if ('flipper' in selections) {
       flipper.visible = selections.flipper !== null;
@@ -153,6 +154,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     group.rotation.y = 0;
     velocity.x = 0;
     velocity.z = 0;
+    hasWheels = true;
     flipperAngle = 0;
     flipperActive = false;
     flipper.rotation.x = 0;
@@ -167,16 +169,19 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   }
 
   function accelerate(amount) {
+    if (!hasWheels) return;
     velocity.x += -Math.sin(rotation) * amount;
     velocity.z += -Math.cos(rotation) * amount;
   }
 
   function turnLeft(amount) {
+    if (!hasWheels) return;
     rotation += amount;
     group.rotation.y = rotation;
   }
 
   function turnRight(amount) {
+    if (!hasWheels) return;
     rotation -= amount;
     group.rotation.y = rotation;
   }

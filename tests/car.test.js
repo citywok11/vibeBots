@@ -734,4 +734,38 @@ describe('Car applyCustomisation()', () => {
     car.applyCustomisation({ model: null, wheels: null, flipper: null });
     expect(car.flamethrower.visible).toBe(true);
   });
+
+  it('should prevent accelerate when wheels are deselected', () => {
+    const car = createCar();
+    car.applyCustomisation({ wheels: null });
+    car.accelerate(10);
+    expect(car.velocity.x).toBe(0);
+    expect(car.velocity.z).toBe(0);
+  });
+
+  it('should prevent turnLeft when wheels are deselected', () => {
+    const car = createCar();
+    const initialRotation = car.rotation;
+    car.applyCustomisation({ wheels: null });
+    car.turnLeft(1);
+    expect(car.rotation).toBe(initialRotation);
+  });
+
+  it('should prevent turnRight when wheels are deselected', () => {
+    const car = createCar();
+    const initialRotation = car.rotation;
+    car.applyCustomisation({ wheels: null });
+    car.turnRight(1);
+    expect(car.rotation).toBe(initialRotation);
+  });
+
+  it('should allow movement again when wheels are re-selected after being deselected', () => {
+    const car = createCar();
+    car.applyCustomisation({ wheels: null });
+    car.accelerate(10);
+    expect(car.velocity.x).toBe(0);
+    car.applyCustomisation({ wheels: 'standard' });
+    car.accelerate(10);
+    expect(car.velocity.x !== 0 || car.velocity.z !== 0).toBe(true);
+  });
 });

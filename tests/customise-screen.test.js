@@ -87,16 +87,19 @@ describe('CustomiseScreen', () => {
     });
   });
 
-  it('should start with no selection (null) in each section', () => {
+  it('should start with model selected and other sections unselected', () => {
     const sel = screen.getSelections();
-    expect(sel.model).toBeNull();
+    expect(sel.model).toBe('standard');
     expect(sel.wheels).toBeNull();
     expect(sel.flipper).toBeNull();
   });
 
-  it('should not highlight any item button by default', () => {
+  it('should highlight the model item button by default (model is always selected)', () => {
     screen.open();
-    ['model', 'wheels', 'flipper', 'flamethrower'].forEach(key => {
+    const modelSection = container.querySelector('.customise-section-model');
+    const modelBtn = modelSection.querySelector('.customise-item-button');
+    expect(modelBtn.style.borderColor).toBe('rgb(255, 215, 0)');
+    ['wheels', 'flipper', 'flamethrower'].forEach(key => {
       const section = container.querySelector(`.customise-section-${key}`);
       const buttons = section.querySelectorAll('.customise-item-button');
       buttons.forEach(btn => {
@@ -107,40 +110,50 @@ describe('CustomiseScreen', () => {
 
   it('should select item with gold border when clicked', () => {
     screen.open();
-    const section = container.querySelector('.customise-section-model');
+    const section = container.querySelector('.customise-section-wheels');
     const btn = section.querySelector('.customise-item-button');
     btn.click();
     expect(btn.style.borderColor).toBe('rgb(255, 215, 0)');
-    expect(screen.getSelections().model).toBe(btn.dataset.itemId);
+    expect(screen.getSelections().wheels).toBe(btn.dataset.itemId);
   });
 
   it('should deselect item when clicked again (toggle off)', () => {
     screen.open();
-    const section = container.querySelector('.customise-section-model');
+    const section = container.querySelector('.customise-section-wheels');
     const btn = section.querySelector('.customise-item-button');
     btn.click();
     expect(btn.style.borderColor).toBe('rgb(255, 215, 0)');
     btn.click();
     expect(btn.style.borderColor).not.toBe('rgb(255, 215, 0)');
-    expect(screen.getSelections().model).toBeNull();
+    expect(screen.getSelections().wheels).toBeNull();
+  });
+
+  it('should not deselect model when clicked again (model is required)', () => {
+    screen.open();
+    const section = container.querySelector('.customise-section-model');
+    const btn = section.querySelector('.customise-item-button');
+    // model starts selected — clicking it again must keep it selected
+    btn.click();
+    expect(btn.style.borderColor).toBe('rgb(255, 215, 0)');
+    expect(screen.getSelections().model).toBe('standard');
   });
 
   it('should set selection to null in getSelections when item is deselected', () => {
     screen.open();
-    const section = container.querySelector('.customise-section-model');
+    const section = container.querySelector('.customise-section-wheels');
     const btn = section.querySelector('.customise-item-button');
     btn.click();
     btn.click();
-    expect(screen.getSelections().model).toBeNull();
+    expect(screen.getSelections().wheels).toBeNull();
   });
 
   it('should update selection and highlight when an item button is clicked', () => {
     screen.open();
-    const section = container.querySelector('.customise-section-model');
+    const section = container.querySelector('.customise-section-wheels');
     const btn = section.querySelector('.customise-item-button');
     btn.click();
     expect(btn.style.borderColor).toBe('rgb(255, 215, 0)');
-    expect(screen.getSelections().model).toBe(btn.dataset.itemId);
+    expect(screen.getSelections().wheels).toBe(btn.dataset.itemId);
   });
 
   it('should have a Back button', () => {
@@ -170,7 +183,7 @@ describe('CustomiseScreen', () => {
   it('should return a copy from getSelections (not internal reference)', () => {
     const sel = screen.getSelections();
     sel.model = 'something-else';
-    expect(screen.getSelections().model).toBeNull();
+    expect(screen.getSelections().model).toBe('standard');
   });
 
   it('should have a semi-transparent overlay background', () => {
