@@ -276,6 +276,48 @@ describe('Pit', () => {
     expect(pit.depthFloor.material.uniforms.uTime.value).toBeCloseTo(0.5);
   });
 
+  it('should expose a warningSign mesh', () => {
+    const pit = createPit(50);
+    expect(pit.warningSign).toBeDefined();
+    expect(pit.warningSign.isMesh).toBe(true);
+  });
+
+  it('warningSign should start just above the floor', () => {
+    const pit = createPit(50);
+    expect(pit.warningSign.position.y).toBeGreaterThan(0);
+    expect(pit.warningSign.position.y).toBeLessThan(0.1);
+  });
+
+  it('warningSign should use a ShaderMaterial', () => {
+    const pit = createPit(50);
+    expect(pit.warningSign.material.isShaderMaterial).toBe(true);
+  });
+
+  it('warningSign should descend with the cover while lowering', () => {
+    const pit = createPit(50);
+    const initialY = pit.warningSign.position.y;
+    pit.activate();
+    pit.update(0.5);
+    expect(pit.warningSign.position.y).toBeLessThan(initialY);
+  });
+
+  it('warningSign y should track cover y during lowering', () => {
+    const pit = createPit(50);
+    pit.activate();
+    pit.update(1);
+    expect(pit.warningSign.position.y).toBeGreaterThan(pit.cover.position.y);
+    expect(pit.warningSign.position.y - pit.cover.position.y).toBeCloseTo(0.02, 4);
+  });
+
+  it('reset() should restore warningSign to starting y', () => {
+    const pit = createPit(50);
+    const initialY = pit.warningSign.position.y;
+    pit.activate();
+    pit.update(1);
+    pit.reset();
+    expect(pit.warningSign.position.y).toBeCloseTo(initialY, 5);
+  });
+
   it('should add 4 pit shaft side wall meshes to the group', () => {
     const pit = createPit(50);
     expect(getShaftWalls(pit).length).toBe(4);
