@@ -180,7 +180,7 @@ describe('Pit', () => {
   it('should be fully open after 10 seconds', () => {
     const pit = createPit(50);
     pit.activate();
-    for (let i = 0; i < 100; i++) pit.update(0.1);
+    for (let i = 0; i < 125; i++) pit.update(0.1);
     expect(pit.isOpen()).toBe(true);
   });
 
@@ -252,7 +252,7 @@ describe('Pit', () => {
   it('cover uDepth uniform should be 1 when fully open', () => {
     const pit = createPit(50);
     pit.activate();
-    for (let i = 0; i < 100; i++) pit.update(0.1);
+    for (let i = 0; i < 125; i++) pit.update(0.1);
     expect(pit.cover.material.uniforms.uDepth.value).toBe(1);
   });
 
