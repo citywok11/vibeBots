@@ -8,6 +8,12 @@ const BASE_HEIGHT = 0.3;
 const BASE_COLOR = 0x333333;
 const PADDLE_COLOR = 0xcc4400;
 
+// ── Physics floors ───────────────────────────────────────────────
+/** Prevents the swing from becoming infinitely slow at high ease values. */
+const MIN_SWING_EASE_FACTOR = 0.1;
+/** Ensures the paddle always converges to rest even at tiny remaining angles. */
+const MIN_RESET_SPEED_FACTOR = 0.25;
+
 // ── Default tuning ────────────────────────────────────────────────
 const DEFAULTS = {
   restAngle: 0,                    // radians — paddle resting position
@@ -102,7 +108,7 @@ export function createArenaFlipper(x, z, facingAngle = 0, tuning = {}) {
         const progress = cfg.activeAngle > cfg.restAngle
           ? (angle - cfg.restAngle) / (cfg.activeAngle - cfg.restAngle)
           : 0;
-        const easeFactor = Math.max(0.1, 1 - progress * cfg.swingEase);
+        const easeFactor = Math.max(MIN_SWING_EASE_FACTOR, 1 - progress * cfg.swingEase);
         angle += cfg.swingSpeed * easeFactor * dt;
         if (angle >= cfg.activeAngle) {
           angle = cfg.activeAngle;
@@ -115,7 +121,7 @@ export function createArenaFlipper(x, z, facingAngle = 0, tuning = {}) {
         const remaining = angle - cfg.restAngle;
         let speed = cfg.resetSpeed;
         if (cfg.resetEaseZone > 0 && remaining < cfg.resetEaseZone) {
-          speed = cfg.resetSpeed * Math.max(0.25, remaining / cfg.resetEaseZone);
+          speed = cfg.resetSpeed * Math.max(MIN_RESET_SPEED_FACTOR, remaining / cfg.resetEaseZone);
         }
         angle -= speed * dt;
         if (angle <= cfg.restAngle) {
