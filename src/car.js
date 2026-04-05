@@ -278,6 +278,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     flame,
     particles,
     get flipperAngle() { return flipperAngle; },
+    get flipperActive() { return flipperActive; },
     get flamethrowerActive() { return flamethrowerActive; },
     get rotation() { return rotation; },
     get velocity() { return velocity; },

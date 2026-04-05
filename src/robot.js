@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 const RESTITUTION = 0.6;
+const GRAVITY = 20;
 
 export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
   const width = 2;
@@ -48,11 +49,13 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
   const collisionRadius = Math.sqrt((width / 2) ** 2 + (depth / 2) ** 2);
 
   const velocity = { x: 0, z: 0 };
+  let velocityY = 0;
 
   function reset() {
     group.position.set(startPos.x, groupY, startPos.z);
     velocity.x = 0;
     velocity.z = 0;
+    velocityY = 0;
   }
 
   function bounceOffWalls(arenaSize) {
@@ -91,6 +94,13 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
   function update(dt) {
     group.position.x += velocity.x * dt;
     group.position.z += velocity.z * dt;
+
+    velocityY -= GRAVITY * dt;
+    group.position.y += velocityY * dt;
+    if (group.position.y <= groupY) {
+      group.position.y = groupY;
+      velocityY = 0;
+    }
   }
 
   return {
@@ -99,6 +109,9 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
     get mass() { return mass; },
     collisionRadius,
     get velocity() { return velocity; },
+    get velocityY() { return velocityY; },
+    set velocityY(v) { velocityY = v; },
+    get groundY() { return groupY; },
     bounceOffWalls,
     update,
     reset,
