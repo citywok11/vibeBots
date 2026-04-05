@@ -70,9 +70,17 @@ describe('CustomiseScreen', () => {
     expect(heading.textContent).toBe('FLIPPER');
   });
 
+  it('should have a FLAMETHROWER section', () => {
+    screen.open();
+    const section = container.querySelector('.customise-section-flamethrower');
+    expect(section).not.toBeNull();
+    const heading = section.querySelector('.customise-section-title');
+    expect(heading.textContent).toBe('FLAMETHROWER');
+  });
+
   it('should show at least one item button in each section', () => {
     screen.open();
-    ['model', 'wheels', 'flipper'].forEach(key => {
+    ['model', 'wheels', 'flipper', 'flamethrower'].forEach(key => {
       const section = container.querySelector(`.customise-section-${key}`);
       const buttons = section.querySelectorAll('.customise-item-button');
       expect(buttons.length).toBeGreaterThan(0);
@@ -81,7 +89,7 @@ describe('CustomiseScreen', () => {
 
   it('should highlight the selected item with a gold border', () => {
     screen.open();
-    ['model', 'wheels', 'flipper'].forEach(key => {
+    ['model', 'wheels', 'flipper', 'flamethrower'].forEach(key => {
       const section = container.querySelector(`.customise-section-${key}`);
       const selectedBtn = section.querySelector('.customise-item-button[data-item-id="standard"]');
       expect(selectedBtn).not.toBeNull();
@@ -119,6 +127,7 @@ describe('CustomiseScreen', () => {
     expect(sel).toHaveProperty('model');
     expect(sel).toHaveProperty('wheels');
     expect(sel).toHaveProperty('flipper');
+    expect(sel).toHaveProperty('flamethrower');
   });
 
   it('should return a copy from getSelections (not internal reference)', () => {

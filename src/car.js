@@ -70,13 +70,42 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   flame.visible = false;
   group.add(flame);
 
-  const FLAME_DURATION = 0.5;
+  // Flame particles - small spheres that stream in front of the car when active
+  const N_PARTICLES = 15;
+  const PARTICLE_LIFETIME = 0.5;
+  const PARTICLE_SPEED = 4;
+  const PARTICLE_SPREAD = 0.3;
+  const PARTICLE_SPAWN_Z = -1.75; // just past the barrel tip (front of car)
+  const PARTICLE_SPAWN_Y = height / 2;
+
+  const particleGeometry = new THREE.SphereGeometry(0.1, 4, 4);
+  const particles = [];
+  for (let i = 0; i < N_PARTICLES; i++) {
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0xff4400,
+      emissive: 0xff2200,
+      emissiveIntensity: 1.5,
+      transparent: true,
+      opacity: 0,
+    });
+    const mesh = new THREE.Mesh(particleGeometry, mat);
+    mesh.visible = false;
+    group.add(mesh);
+    particles.push({
+      mesh,
+      age: Math.random() * PARTICLE_LIFETIME,
+      spawnX: (Math.random() - 0.5) * PARTICLE_SPREAD,
+    });
+  }
+
   let flamethrowerActive = false;
-  let flamethrowerTimer = 0;
 
   function activateFlamethrower() {
     flamethrowerActive = true;
-    flamethrowerTimer = FLAME_DURATION;
+  }
+
+  function deactivateFlamethrower() {
+    flamethrowerActive = false;
   }
 
   // Flipper - wedge at the front of the car
@@ -115,8 +144,13 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     flipperActive = false;
     flipper.rotation.x = 0;
     flamethrowerActive = false;
-    flamethrowerTimer = 0;
     flame.visible = false;
+    particles.forEach(p => {
+      p.mesh.visible = false;
+      p.mesh.material.opacity = 0;
+      p.age = Math.random() * PARTICLE_LIFETIME;
+      p.spawnX = (Math.random() - 0.5) * PARTICLE_SPREAD;
+    });
   }
 
   function accelerate(amount) {
@@ -196,14 +230,28 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     flipper.rotation.x = -flipperAngle;
 
     // Flamethrower animation
-    if (flamethrowerActive) {
-      flamethrowerTimer -= dt;
-      if (flamethrowerTimer <= 0) {
-        flamethrowerTimer = 0;
-        flamethrowerActive = false;
-      }
-    }
     flame.visible = flamethrowerActive;
+    if (flamethrowerActive) {
+      particles.forEach(p => {
+        p.age += dt;
+        if (p.age >= PARTICLE_LIFETIME) {
+          p.age = 0;
+          p.spawnX = (Math.random() - 0.5) * PARTICLE_SPREAD;
+        }
+        const t = p.age / PARTICLE_LIFETIME;
+        p.mesh.position.set(
+          p.spawnX,
+          PARTICLE_SPAWN_Y,
+          PARTICLE_SPAWN_Z - PARTICLE_SPEED * p.age,
+        );
+        p.mesh.material.opacity = 1 - t;
+        const scale = 0.5 + t * 1.5;
+        p.mesh.scale.set(scale, scale, scale);
+        p.mesh.visible = true;
+      });
+    } else {
+      particles.forEach(p => { p.mesh.visible = false; });
+    }
   }
 
   return {
@@ -213,6 +261,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     flipper,
     flamethrower,
     flame,
+    particles,
     get flipperAngle() { return flipperAngle; },
     get flamethrowerActive() { return flamethrowerActive; },
     get rotation() { return rotation; },
@@ -220,6 +269,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     accelerate,
     activateFlipper,
     activateFlamethrower,
+    deactivateFlamethrower,
     turnLeft,
     turnRight,
     bounceOffWalls,

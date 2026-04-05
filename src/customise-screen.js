@@ -2,6 +2,7 @@ const CATALOGUE = {
   models: [{ id: 'standard', label: 'Standard' }],
   wheels: [{ id: 'standard', label: 'Standard' }],
   flippers: [{ id: 'standard', label: 'Standard' }],
+  flamethrowers: [{ id: 'standard', label: 'Standard' }],
 };
 
 function createModelVisual() {
@@ -73,6 +74,42 @@ function createFlipperVisual() {
 
   outer.appendChild(ramp);
   outer.appendChild(base);
+  wrap.appendChild(outer);
+
+  return wrap;
+}
+
+function createFlamethrowerVisual() {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position: relative; width: 70px; height: 70px; display: flex; align-items: center; justify-content: center;';
+
+  const outer = document.createElement('div');
+  outer.style.cssText = 'position: relative; width: 62px; height: 22px;';
+
+  // Barrel body
+  const barrel = document.createElement('div');
+  barrel.style.cssText = 'position: absolute; bottom: 6px; left: 0; width: 44px; height: 10px; background: #666; border-radius: 2px;';
+
+  // Nozzle tip
+  const nozzle = document.createElement('div');
+  nozzle.style.cssText = 'position: absolute; bottom: 8px; left: 44px; width: 8px; height: 6px; background: #888; border-radius: 1px;';
+
+  // Flame burst using CSS gradient cone shape
+  const flameBurst = document.createElement('div');
+  flameBurst.style.cssText = `
+    position: absolute;
+    bottom: 4px;
+    left: 52px;
+    width: 0;
+    height: 0;
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+    border-left: 12px solid #ff6600;
+  `;
+
+  outer.appendChild(barrel);
+  outer.appendChild(nozzle);
+  outer.appendChild(flameBurst);
   wrap.appendChild(outer);
 
   return wrap;
@@ -160,6 +197,7 @@ export function createCustomiseScreen(container) {
     model: 'standard',
     wheels: 'standard',
     flipper: 'standard',
+    flamethrower: 'standard',
   };
 
   // Overlay
@@ -207,6 +245,7 @@ export function createCustomiseScreen(container) {
   panel.appendChild(createSection('Model', CATALOGUE.models, 'model', selections, createModelVisual));
   panel.appendChild(createSection('Wheels', CATALOGUE.wheels, 'wheels', selections, createWheelVisual));
   panel.appendChild(createSection('Flipper', CATALOGUE.flippers, 'flipper', selections, createFlipperVisual));
+  panel.appendChild(createSection('Flamethrower', CATALOGUE.flamethrowers, 'flamethrower', selections, createFlamethrowerVisual));
 
   // Back button
   const backBtn = document.createElement('button');
