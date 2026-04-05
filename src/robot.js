@@ -5,6 +5,7 @@ const GRAVITY = 20;
 
 export const ROBOT_BODY_WIDTH = 2;
 export const ROBOT_BODY_DEPTH = 3;
+const FRICTION = 0.98;
 
 export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
   const width = ROBOT_BODY_WIDTH;
@@ -104,6 +105,8 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
       group.position.y = groupY;
       velocityY = 0;
     }
+    velocity.x *= FRICTION;
+    velocity.z *= FRICTION;
   }
 
   return {
