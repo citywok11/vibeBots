@@ -146,6 +146,15 @@ describe('Robot', () => {
     expect(robot.group.position.z).toBe(5);
   });
 
+  it('should apply friction to velocity on each update', () => {
+    const robot = createRobot({ x: 0, z: 0 });
+    robot.velocity.x = 10;
+    robot.velocity.z = 0;
+    robot.update(0.1);
+    expect(robot.velocity.x).toBeLessThan(10);
+    expect(robot.velocity.x).toBeGreaterThan(0);
+  });
+
   it('should reset velocity to zero', () => {
     const robot = createRobot({ x: 0, z: 0 });
     robot.velocity.x = 10;

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 const RESTITUTION = 0.6;
+const FRICTION = 0.98;
 
 export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
   const width = 2;
@@ -91,6 +92,8 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
   function update(dt) {
     group.position.x += velocity.x * dt;
     group.position.z += velocity.z * dt;
+    velocity.x *= FRICTION;
+    velocity.z *= FRICTION;
   }
 
   return {
