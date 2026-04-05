@@ -105,6 +105,19 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   let rotation = 0;
   const velocity = { x: 0, z: 0 };
 
+  function applyCustomisation(selections = {}) {
+    if ('model' in selections) {
+      body.visible = selections.model !== null;
+    }
+    if ('wheels' in selections) {
+      const show = selections.wheels !== null;
+      wheels.forEach(w => { w.visible = show; });
+    }
+    if ('flipper' in selections) {
+      flipper.visible = selections.flipper !== null;
+    }
+  }
+
   function reset() {
     group.position.set(startPos.x, groupY, startPos.z);
     rotation = 0;
@@ -225,5 +238,6 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     bounceOffWalls,
     update,
     reset,
+    applyCustomisation,
   };
 }

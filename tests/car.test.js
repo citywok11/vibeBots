@@ -603,3 +603,80 @@ describe('Car flamethrower', () => {
     expect(car.flame.visible).toBe(false);
   });
 });
+
+describe('Car applyCustomisation()', () => {
+  it('should expose an applyCustomisation method', () => {
+    const car = createCar();
+    expect(typeof car.applyCustomisation).toBe('function');
+  });
+
+  it('should hide the flipper when flipper selection is null', () => {
+    const car = createCar();
+    car.applyCustomisation({ flipper: null });
+    expect(car.flipper.visible).toBe(false);
+  });
+
+  it('should show the flipper when flipper selection is standard', () => {
+    const car = createCar();
+    car.flipper.visible = false;
+    car.applyCustomisation({ flipper: 'standard' });
+    expect(car.flipper.visible).toBe(true);
+  });
+
+  it('should hide all wheels when wheels selection is null', () => {
+    const car = createCar();
+    car.applyCustomisation({ wheels: null });
+    car.wheels.forEach(wheel => {
+      expect(wheel.visible).toBe(false);
+    });
+  });
+
+  it('should show all wheels when wheels selection is standard', () => {
+    const car = createCar();
+    car.wheels.forEach(w => { w.visible = false; });
+    car.applyCustomisation({ wheels: 'standard' });
+    car.wheels.forEach(wheel => {
+      expect(wheel.visible).toBe(true);
+    });
+  });
+
+  it('should hide the body mesh when model selection is null', () => {
+    const car = createCar();
+    car.applyCustomisation({ model: null });
+    expect(car.mesh.visible).toBe(false);
+  });
+
+  it('should show the body mesh when model selection is standard', () => {
+    const car = createCar();
+    car.mesh.visible = false;
+    car.applyCustomisation({ model: 'standard' });
+    expect(car.mesh.visible).toBe(true);
+  });
+
+  it('should apply all three selections at once', () => {
+    const car = createCar();
+    car.applyCustomisation({ model: null, wheels: null, flipper: null });
+    expect(car.mesh.visible).toBe(false);
+    car.wheels.forEach(wheel => expect(wheel.visible).toBe(false));
+    expect(car.flipper.visible).toBe(false);
+  });
+
+  it('should apply mixed selections correctly', () => {
+    const car = createCar();
+    car.applyCustomisation({ model: 'standard', wheels: null, flipper: 'standard' });
+    expect(car.mesh.visible).toBe(true);
+    car.wheels.forEach(wheel => expect(wheel.visible).toBe(false));
+    expect(car.flipper.visible).toBe(true);
+  });
+
+  it('should ignore unknown keys and not throw', () => {
+    const car = createCar();
+    expect(() => car.applyCustomisation({ unknown: 'value' })).not.toThrow();
+  });
+
+  it('should not affect flamethrower visibility', () => {
+    const car = createCar();
+    car.applyCustomisation({ model: null, wheels: null, flipper: null });
+    expect(car.flamethrower.visible).toBe(true);
+  });
+});

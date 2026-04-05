@@ -177,8 +177,9 @@ menu.onCustomise(() => {
   customiseScreen.open();
 });
 
-// onClose fires when Back is clicked; close the screen then return to the pause menu
+// onClose fires when Back is clicked; apply selections to the car, close the screen then return to the pause menu
 customiseScreen.onClose(() => {
+  car.applyCustomisation(customiseScreen.getSelections());
   customiseScreen.close();
   menu.open();
 });
