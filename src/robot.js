@@ -132,10 +132,15 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
     const cosR = Math.cos(rotation);
     const sinR = Math.sin(rotation);
 
-    // Compute the axis-aligned bounding box from the four corners of the
-    // robot's oriented rectangle so corners can't clip through walls.
-    const halfW = width / 2;
-    const halfD = depth / 2;
+    // Compute the axis-aligned bounding box from the oriented bounding
+    // rectangle that encompasses the body AND all four wheels so that no
+    // part of the robot can clip through walls.
+    //
+    // Wheel outer edge in X: width/2 + AXLE_GAP + wheelWidth
+    // Wheel outer edge in Z: max(depth/2, wheelOffsetZ + wheelRadius)
+    //   wheelOffsetZ = depth/2 - 0.4, so wheelOffsetZ + wheelRadius may exceed depth/2
+    const halfW = width / 2 + AXLE_GAP + wheelWidth;
+    const halfD = Math.max(depth / 2, wheelOffsetZ + wheelRadius);
 
     let maxX = -Infinity, minX = Infinity;
     let maxZ = -Infinity, minZ = Infinity;
