@@ -48,6 +48,37 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     return wheel;
   });
 
+  // Flamethrower - barrel at the middle of the car (top center)
+  const flamethrowerGeometry = new THREE.CylinderGeometry(0.1, 0.15, 1.0, 8);
+  flamethrowerGeometry.rotateX(Math.PI / 2);
+  const flamethrowerMaterial = new THREE.MeshStandardMaterial({ color: 0x555555 });
+  const flamethrower = new THREE.Mesh(flamethrowerGeometry, flamethrowerMaterial);
+  flamethrower.position.set(0, height / 2, 0);
+  flamethrower.castShadow = true;
+  group.add(flamethrower);
+
+  // Flame - cone that shoots forward from the barrel
+  const flameGeometry = new THREE.ConeGeometry(0.35, 1.5, 8);
+  flameGeometry.rotateX(-Math.PI / 2);
+  const flameMaterial = new THREE.MeshStandardMaterial({
+    color: 0xff6600,
+    emissive: 0xff4400,
+    emissiveIntensity: 1.0,
+  });
+  const flame = new THREE.Mesh(flameGeometry, flameMaterial);
+  flame.position.set(0, height / 2, -1.25);
+  flame.visible = false;
+  group.add(flame);
+
+  const FLAME_DURATION = 0.5;
+  let flamethrowerActive = false;
+  let flamethrowerTimer = 0;
+
+  function activateFlamethrower() {
+    flamethrowerActive = true;
+    flamethrowerTimer = FLAME_DURATION;
+  }
+
   // Flipper - wedge at the front of the car
   const flipperWidth = width;
   const flipperHeight = 0.15;
@@ -83,6 +114,9 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     flipperAngle = 0;
     flipperActive = false;
     flipper.rotation.x = 0;
+    flamethrowerActive = false;
+    flamethrowerTimer = 0;
+    flame.visible = false;
   }
 
   function accelerate(amount) {
@@ -160,6 +194,16 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
       if (flipperAngle < 0) flipperAngle = 0;
     }
     flipper.rotation.x = -flipperAngle;
+
+    // Flamethrower animation
+    if (flamethrowerActive) {
+      flamethrowerTimer -= dt;
+      if (flamethrowerTimer <= 0) {
+        flamethrowerTimer = 0;
+        flamethrowerActive = false;
+      }
+    }
+    flame.visible = flamethrowerActive;
   }
 
   return {
@@ -167,11 +211,15 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     mesh: body,
     wheels,
     flipper,
+    flamethrower,
+    flame,
     get flipperAngle() { return flipperAngle; },
+    get flamethrowerActive() { return flamethrowerActive; },
     get rotation() { return rotation; },
     get velocity() { return velocity; },
     accelerate,
     activateFlipper,
+    activateFlamethrower,
     turnLeft,
     turnRight,
     bounceOffWalls,

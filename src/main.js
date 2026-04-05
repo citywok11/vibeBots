@@ -74,6 +74,7 @@ function gameLoop(time) {
   if (input.isPressed('turnLeft')) car.turnLeft(TURN_SPEED * dt);
   if (input.isPressed('turnRight')) car.turnRight(TURN_SPEED * dt);
   if (input.wasJustPressed('flipper')) car.activateFlipper();
+  if (input.wasJustPressed('flamethrower')) car.activateFlamethrower();
 
   car.update(dt);
   car.bounceOffWalls(ARENA_SIZE);

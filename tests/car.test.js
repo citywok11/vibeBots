@@ -529,3 +529,77 @@ describe('Car sub-component collision detection (wheels and flipper)', () => {
     });
   });
 });
+
+describe('Car flamethrower', () => {
+  it('should have a flamethrower barrel attached to the car group', () => {
+    const car = createCar();
+    expect(car.flamethrower).toBeDefined();
+    expect(car.flamethrower.isMesh).toBe(true);
+    expect(car.group.children).toContain(car.flamethrower);
+  });
+
+  it('should have a flame mesh attached to the car group', () => {
+    const car = createCar();
+    expect(car.flame).toBeDefined();
+    expect(car.flame.isMesh).toBe(true);
+    expect(car.group.children).toContain(car.flame);
+  });
+
+  it('should position the flamethrower barrel at the middle of the car (z ≈ 0)', () => {
+    const car = createCar();
+    expect(car.flamethrower.position.z).toBeCloseTo(0, 5);
+  });
+
+  it('should position the flamethrower barrel on top of the car body', () => {
+    const car = createCar();
+    expect(car.flamethrower.position.y).toBeGreaterThan(0);
+  });
+
+  it('should position the flamethrower barrel at the horizontal center of the car (x = 0)', () => {
+    const car = createCar();
+    expect(car.flamethrower.position.x).toBeCloseTo(0, 5);
+  });
+
+  it('should start with the flamethrower inactive', () => {
+    const car = createCar();
+    expect(car.flamethrowerActive).toBe(false);
+  });
+
+  it('should start with the flame hidden', () => {
+    const car = createCar();
+    expect(car.flame.visible).toBe(false);
+  });
+
+  it('should activate the flamethrower when activateFlamethrower() is called', () => {
+    const car = createCar();
+    car.activateFlamethrower();
+    expect(car.flamethrowerActive).toBe(true);
+  });
+
+  it('should show the flame when the flamethrower is active', () => {
+    const car = createCar();
+    car.activateFlamethrower();
+    car.update(0.016);
+    expect(car.flame.visible).toBe(true);
+  });
+
+  it('should automatically deactivate after the flame duration expires', () => {
+    const car = createCar();
+    car.activateFlamethrower();
+    // Simulate enough time for the flame to expire (0.5s duration)
+    for (let i = 0; i < 50; i++) {
+      car.update(0.02);
+    }
+    expect(car.flamethrowerActive).toBe(false);
+    expect(car.flame.visible).toBe(false);
+  });
+
+  it('should reset flamethrower state on reset()', () => {
+    const car = createCar();
+    car.activateFlamethrower();
+    car.update(0.016);
+    car.reset();
+    expect(car.flamethrowerActive).toBe(false);
+    expect(car.flame.visible).toBe(false);
+  });
+});
