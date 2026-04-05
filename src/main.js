@@ -6,6 +6,7 @@ import { createMenu } from './menu.js';
 import { createKeyBindingsScreen } from './keybindings-screen.js';
 import { createHomeScreen } from './home-screen.js';
 import { createOptionsScreen } from './options-screen.js';
+import { createGameController } from './game.js';
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -49,16 +50,56 @@ const optionsScreen = createOptionsScreen(document.body);
 const menu = createMenu(document.body);
 const keyBindingsScreen = createKeyBindingsScreen(document.body, input);
 
-let gameStarted = false;
+// Game loop
+const ACCEL = 20;
+const TURN_SPEED = 3;
+let lastTime = performance.now();
+let rafId = null;
+
+function gameLoop(time) {
+  const dt = (time - lastTime) / 1000;
+  lastTime = time;
+
+  if (menu.isOpen()) {
+    renderer.render(scene, camera);
+    rafId = requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  if (input.isPressed('forward')) car.accelerate(ACCEL * dt);
+  if (input.isPressed('backward')) car.accelerate(-ACCEL * dt);
+  if (input.isPressed('turnLeft')) car.turnLeft(TURN_SPEED * dt);
+  if (input.isPressed('turnRight')) car.turnRight(TURN_SPEED * dt);
+  if (input.wasJustPressed('flipper')) car.activateFlipper();
+
+  car.update(dt);
+  car.bounceOffWalls(ARENA_SIZE);
+
+  // Camera follows car
+  const carPos = car.group.position;
+  camera.position.set(carPos.x, 30, carPos.z + 25);
+  camera.lookAt(carPos.x, 0, carPos.z);
+
+  renderer.render(scene, camera);
+  rafId = requestAnimationFrame(gameLoop);
+}
+
+function startLoop() {
+  lastTime = performance.now();
+  if (!rafId) rafId = requestAnimationFrame(gameLoop);
+}
+
+function stopLoop() {
+  if (rafId) {
+    cancelAnimationFrame(rafId);
+    rafId = null;
+  }
+}
+
+const game = createGameController({ homeScreen, menu, onStart: startLoop, onStop: stopLoop });
 
 // Show home screen on startup
 homeScreen.open();
-
-// Home screen callbacks
-homeScreen.onPlay(() => {
-  homeScreen.close();
-  gameStarted = true;
-});
 
 homeScreen.onOptions(() => {
   homeScreen.close();
@@ -91,7 +132,9 @@ window.addEventListener('keydown', (e) => {
     keyBindingsScreen.handleKeyPress(e.code);
     return;
   }
-  if (gameStarted && e.code === 'Escape') menu.toggle();
+  if (e.code === 'Escape' && game.isRunning()) {
+    game.handleEscape();
+  }
 });
 
 menu.onKeyBindings(() => {
@@ -99,48 +142,6 @@ menu.onKeyBindings(() => {
   keyBindingsReturnTo = () => menu.open();
   keyBindingsScreen.open();
 });
-
-menu.onExit(() => {
-  menu.close();
-  gameStarted = false;
-  homeScreen.open();
-});
-
-// Game loop
-const ACCEL = 20;
-const TURN_SPEED = 3;
-let lastTime = performance.now();
-let paused = false;
-
-function gameLoop(time) {
-  requestAnimationFrame(gameLoop);
-  const dt = (time - lastTime) / 1000;
-  lastTime = time;
-
-  paused = !gameStarted || menu.isOpen();
-  if (paused) {
-    renderer.render(scene, camera);
-    return;
-  }
-
-  if (input.isPressed('forward')) car.accelerate(ACCEL * dt);
-  if (input.isPressed('backward')) car.accelerate(-ACCEL * dt);
-  if (input.isPressed('turnLeft')) car.turnLeft(TURN_SPEED * dt);
-  if (input.isPressed('turnRight')) car.turnRight(TURN_SPEED * dt);
-  if (input.wasJustPressed('flipper')) car.activateFlipper();
-
-  car.update(dt);
-  car.bounceOffWalls(ARENA_SIZE);
-
-  // Camera follows car
-  const carPos = car.group.position;
-  camera.position.set(carPos.x, 30, carPos.z + 25);
-  camera.lookAt(carPos.x, 0, carPos.z);
-
-  renderer.render(scene, camera);
-}
-
-requestAnimationFrame(gameLoop);
 
 // Handle resize
 window.addEventListener('resize', () => {
