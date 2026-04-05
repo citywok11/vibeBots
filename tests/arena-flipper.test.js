@@ -64,6 +64,8 @@ describe('createArenaFlipper — state machine', () => {
       resetSpeed: 5,
       cooldown: 1.0,
       restAngle: 0,
+      swingEase: 0,        // linear swing for state machine timing tests
+      resetEaseZone: 0,    // linear reset for state machine timing tests
     });
   });
 
@@ -407,6 +409,251 @@ describe('createArenaFlipper — rotated launch direction', () => {
     f.update(0.05);
     f.applyLaunch(robot);
     expect(robot.velocity.z).toBeGreaterThan(0); // pushed toward +Z
+  });
+});
+
+// ── Swing ease ────────────────────────────────────────────────────
+describe('createArenaFlipper — swing ease', () => {
+  it('eased swing reaches a lower angle than linear swing after the same time', () => {
+    const linear = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 10, activeAngle: 1.0, swingEase: 0,
+    });
+    const eased = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 10, activeAngle: 1.0, swingEase: 0.5,
+    });
+
+    linear.fire();
+    eased.fire();
+    tick(linear, 0.08);
+    tick(eased, 0.08);
+
+    expect(eased.getAngle()).toBeLessThan(linear.getAngle());
+  });
+
+  it('eased swing still reaches activeAngle and transitions to resetting', () => {
+    const eased = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 10, activeAngle: 1.0, swingEase: 0.5,
+    });
+    eased.fire();
+    tick(eased, 0.5);
+    expect(eased.getState()).not.toBe(STATE_FIRING);
+  });
+
+  it('swingEase of 0 produces a linear swing', () => {
+    const f = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 10, activeAngle: 1.0, swingEase: 0,
+    });
+    f.fire();
+    f.update(0.05);
+    expect(f.getAngle()).toBeCloseTo(0.5, 3);
+  });
+
+  it('new tuning values are accessible via getConfig', () => {
+    const f = createArenaFlipper(0, 0, 0, { swingEase: 0.7 });
+    const cfg = f.getConfig();
+    expect(cfg.swingEase).toBe(0.7);
+    expect(cfg.launchWindowEnd).toBeDefined();
+    expect(cfg.contactDepthScale).toBeDefined();
+    expect(cfg.resetEaseZone).toBeDefined();
+    expect(cfg.directionBlend).toBeDefined();
+  });
+});
+
+// ── Reset ease ────────────────────────────────────────────────────
+describe('createArenaFlipper — reset ease', () => {
+  it('reset speed slows down near rest angle when resetEaseZone > 0', () => {
+    const f = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 100, activeAngle: 0.3, resetSpeed: 5,
+      resetEaseZone: 0.2, swingEase: 0,
+    });
+    f.fire();
+    tick(f, 0.01); // reach peak quickly at high swingSpeed
+
+    // Advance into resetting and record rate outside ease zone
+    f.update(0.01); // still well above ease zone
+    const angleBefore = f.getAngle();
+    f.update(0.01);
+    const rateOutside = angleBefore - f.getAngle();
+
+    // Advance until inside ease zone (angle < 0.2)
+    tick(f, 0.05);
+    const angleInZone = f.getAngle();
+    if (angleInZone > 0.01 && angleInZone < 0.2) {
+      f.update(0.01);
+      const rateInside = angleInZone - f.getAngle();
+      expect(rateInside).toBeLessThan(rateOutside);
+    }
+  });
+
+  it('reset with ease zone still reaches rest angle', () => {
+    const f = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 10, activeAngle: 1.0, resetSpeed: 5,
+      resetEaseZone: 0.15, swingEase: 0,
+    });
+    f.fire();
+    tick(f, 3.0);
+    expect(f.getAngle()).toBeCloseTo(0, 3);
+    expect(f.getState()).not.toBe(STATE_RESETTING);
+  });
+
+  it('resetEaseZone of 0 produces a linear reset', () => {
+    const f = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 100, activeAngle: 0.2, resetSpeed: 5,
+      resetEaseZone: 0, swingEase: 0,
+    });
+    f.fire();
+    tick(f, 0.01); // fire to peak quickly
+    // Now in resetting at angle ≈ 0.2
+    const before = f.getAngle();
+    f.update(0.01);
+    // Linear rate = resetSpeed * dt = 5 * 0.01 = 0.05
+    expect(before - f.getAngle()).toBeCloseTo(0.05, 3);
+  });
+});
+
+// ── Launch window ─────────────────────────────────────────────────
+describe('createArenaFlipper — launch window', () => {
+  it('late swing (beyond launchWindowEnd) produces less vertical force than mid-swing', () => {
+    const rMid = createRobot({ x: 0, z: 0 });
+    rMid.group.position.set(0, rMid.groundY, 0);
+    const rLate = createRobot({ x: 0, z: 0 });
+    rLate.group.position.set(0, rLate.groundY, 0);
+
+    // Launch at progress 0.5 (within window)
+    const fMid = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 10, activeAngle: 1.0, launchUp: 12,
+      launchWindowEnd: 0.6, contactDepthScale: 0, swingEase: 0, directionBlend: 0,
+    });
+    fMid.fire();
+    fMid.update(0.05); // progress = 0.5
+    fMid.applyLaunch(rMid);
+
+    // Launch at progress 0.9 (beyond window, tapering)
+    const fLate = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 10, activeAngle: 1.0, launchUp: 12,
+      launchWindowEnd: 0.6, contactDepthScale: 0, swingEase: 0, directionBlend: 0,
+    });
+    fLate.fire();
+    fLate.update(0.09); // progress = 0.9
+    fLate.applyLaunch(rLate);
+
+    // Mid-swing should produce a stronger launch despite lower progress
+    expect(rMid.velocityY).toBeGreaterThan(rLate.velocityY);
+  });
+
+  it('launchWindowEnd of 1.0 applies full force at any progress', () => {
+    const r1 = createRobot({ x: 0, z: 0 });
+    r1.group.position.set(0, r1.groundY, 0);
+    const r2 = createRobot({ x: 0, z: 0 });
+    r2.group.position.set(0, r2.groundY, 0);
+
+    const f1 = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 10, activeAngle: 1.0, launchUp: 12,
+      launchWindowEnd: 1.0, contactDepthScale: 0, swingEase: 0, directionBlend: 0,
+    });
+    const f2 = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 10, activeAngle: 1.0, launchUp: 12,
+      launchWindowEnd: 1.0, contactDepthScale: 0, swingEase: 0, directionBlend: 0,
+    });
+
+    f1.fire(); f1.update(0.02); f1.applyLaunch(r1);
+    f2.fire(); f2.update(0.08); f2.applyLaunch(r2);
+
+    // Higher progress always gives more force when window is 1.0
+    expect(r2.velocityY).toBeGreaterThan(r1.velocityY);
+    // Force = launchUp * progress → 12 * 0.2 = 2.4 and 12 * 0.8 = 9.6
+    expect(r1.velocityY).toBeCloseTo(12 * 0.2, 1);
+    expect(r2.velocityY).toBeCloseTo(12 * 0.8, 1);
+  });
+});
+
+// ── Contact depth quality ─────────────────────────────────────────
+describe('createArenaFlipper — contact depth', () => {
+  it('robot at paddle tip receives stronger launch than robot at hinge', () => {
+    const rTip = createRobot({ x: 0, z: 0 });
+    rTip.group.position.set(0, rTip.groundY, -(FLIPPER_DEPTH / 2) + 0.1);
+    const rHinge = createRobot({ x: 0, z: 0 });
+    rHinge.group.position.set(0, rHinge.groundY, (FLIPPER_DEPTH / 2) - 0.1);
+
+    const fTip = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 10, activeAngle: 1.0, launchUp: 12,
+      contactDepthScale: 0.5, launchWindowEnd: 1.0, swingEase: 0, directionBlend: 0,
+    });
+    const fHinge = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 10, activeAngle: 1.0, launchUp: 12,
+      contactDepthScale: 0.5, launchWindowEnd: 1.0, swingEase: 0, directionBlend: 0,
+    });
+
+    fTip.fire(); fTip.update(0.05); fTip.applyLaunch(rTip);
+    fHinge.fire(); fHinge.update(0.05); fHinge.applyLaunch(rHinge);
+
+    expect(rTip.velocityY).toBeGreaterThan(rHinge.velocityY);
+  });
+
+  it('contactDepthScale of 0 gives uniform force across paddle', () => {
+    const rTip = createRobot({ x: 0, z: 0 });
+    rTip.group.position.set(0, rTip.groundY, -(FLIPPER_DEPTH / 2) + 0.1);
+    const rHinge = createRobot({ x: 0, z: 0 });
+    rHinge.group.position.set(0, rHinge.groundY, (FLIPPER_DEPTH / 2) - 0.1);
+
+    const fTip = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 10, activeAngle: 1.0, launchUp: 12,
+      contactDepthScale: 0, launchWindowEnd: 1.0, swingEase: 0, directionBlend: 0,
+    });
+    const fHinge = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 10, activeAngle: 1.0, launchUp: 12,
+      contactDepthScale: 0, launchWindowEnd: 1.0, swingEase: 0, directionBlend: 0,
+    });
+
+    fTip.fire(); fTip.update(0.05); fTip.applyLaunch(rTip);
+    fHinge.fire(); fHinge.update(0.05); fHinge.applyLaunch(rHinge);
+
+    expect(rTip.velocityY).toBeCloseTo(rHinge.velocityY, 3);
+  });
+});
+
+// ── Direction blend ───────────────────────────────────────────────
+describe('createArenaFlipper — direction blend', () => {
+  it('vertical-to-forward ratio increases with swing angle', () => {
+    const rLow = createRobot({ x: 0, z: 0 });
+    rLow.group.position.set(0, rLow.groundY, 0);
+    const rHigh = createRobot({ x: 0, z: 0 });
+    rHigh.group.position.set(0, rHigh.groundY, 0);
+
+    const fLow = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 10, activeAngle: 1.0, launchUp: 10, launchForward: 10,
+      contactDepthScale: 0, launchWindowEnd: 1.0, swingEase: 0, directionBlend: 0.3,
+      launchAssistMax: 0,
+    });
+    const fHigh = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 10, activeAngle: 1.0, launchUp: 10, launchForward: 10,
+      contactDepthScale: 0, launchWindowEnd: 1.0, swingEase: 0, directionBlend: 0.3,
+      launchAssistMax: 0,
+    });
+
+    fLow.fire(); fLow.update(0.02); fLow.applyLaunch(rLow);   // low angle
+    fHigh.fire(); fHigh.update(0.08); fHigh.applyLaunch(rHigh); // high angle
+
+    const ratioLow = rLow.velocityY / Math.abs(rLow.velocity.z);
+    const ratioHigh = rHigh.velocityY / Math.abs(rHigh.velocity.z);
+    expect(ratioHigh).toBeGreaterThan(ratioLow);
+  });
+
+  it('directionBlend of 0 gives equal vertical and forward scaling', () => {
+    const r = createRobot({ x: 0, z: 0 });
+    r.group.position.set(0, r.groundY, 0);
+
+    const f = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 10, activeAngle: 1.0, launchUp: 10, launchForward: 10,
+      contactDepthScale: 0, launchWindowEnd: 1.0, swingEase: 0, directionBlend: 0,
+      launchAssistMax: 0,
+    });
+    f.fire(); f.update(0.05); f.applyLaunch(r);
+
+    // With directionBlend=0, upScale=1.0 and fwdScale=1.0
+    // So velocityY = 10 * 0.5 * 1.0 = 5.0, velocity.z = -(10 * 0.5 * 1.0) = -5.0
+    expect(r.velocityY).toBeCloseTo(5.0, 1);
+    expect(r.velocity.z).toBeCloseTo(-5.0, 1);
   });
 });
 

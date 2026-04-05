@@ -18,6 +18,11 @@ const DEFAULTS = {
   launchUp: 12,                    // vertical impulse applied to robots on contact
   launchForward: 6,                // forward impulse (away from hinge)
   launchAssistMax: 0.3,            // max lateral assist factor
+  swingEase: 0.5,                  // ease-out factor for swing (0 = linear, higher = more front-loaded)
+  launchWindowEnd: 0.85,           // swing progress above this → launch force tapers off
+  contactDepthScale: 0.3,          // how much paddle Z-position affects launch quality (0–1)
+  resetEaseZone: 0.15,             // angle (radians) near rest where reset speed eases in
+  directionBlend: 0.3,             // how much swing angle shifts vertical/forward ratio (0–1)
 };
 
 // ── State constants ───────────────────────────────────────────────
@@ -93,22 +98,33 @@ export function createArenaFlipper(x, z, facingAngle = 0, tuning = {}) {
    */
   function update(dt) {
     switch (state) {
-      case STATE_FIRING:
-        angle += cfg.swingSpeed * dt;
+      case STATE_FIRING: {
+        const progress = cfg.activeAngle > cfg.restAngle
+          ? (angle - cfg.restAngle) / (cfg.activeAngle - cfg.restAngle)
+          : 0;
+        const easeFactor = Math.max(0.1, 1 - progress * cfg.swingEase);
+        angle += cfg.swingSpeed * easeFactor * dt;
         if (angle >= cfg.activeAngle) {
           angle = cfg.activeAngle;
           state = STATE_RESETTING;
         }
         break;
+      }
 
-      case STATE_RESETTING:
-        angle -= cfg.resetSpeed * dt;
+      case STATE_RESETTING: {
+        const remaining = angle - cfg.restAngle;
+        let speed = cfg.resetSpeed;
+        if (cfg.resetEaseZone > 0 && remaining < cfg.resetEaseZone) {
+          speed = cfg.resetSpeed * Math.max(0.25, remaining / cfg.resetEaseZone);
+        }
+        angle -= speed * dt;
         if (angle <= cfg.restAngle) {
           angle = cfg.restAngle;
           state = STATE_COOLDOWN;
           cooldownTimer = cfg.cooldown;
         }
         break;
+      }
 
       case STATE_COOLDOWN:
         cooldownTimer -= dt;
@@ -180,19 +196,39 @@ export function createArenaFlipper(x, z, facingAngle = 0, tuning = {}) {
     // Normalised swing progress [0, 1]
     const progress = (angle - cfg.restAngle) / (cfg.activeAngle - cfg.restAngle);
 
-    // Vertical impulse — scales with swing progress and tuning
-    robot.velocityY += cfg.launchUp * progress;
+    // Launch window: full effectiveness during main swing, tapers near end
+    let effectiveness = 1.0;
+    if (cfg.launchWindowEnd < 1.0 && progress > cfg.launchWindowEnd) {
+      effectiveness = Math.max(0, 1.0 - (progress - cfg.launchWindowEnd) / (1.0 - cfg.launchWindowEnd));
+    }
+
+    // Contact depth: tip of paddle (further from hinge) provides better leverage
+    let depthQuality = 1.0;
+    if (cfg.contactDepthScale > 0) {
+      const distFromHinge = (FLIPPER_DEPTH / 2) - contact.localZ;
+      const leverRatio = Math.max(0, Math.min(1, distFromHinge / FLIPPER_DEPTH));
+      depthQuality = (1.0 - cfg.contactDepthScale) + cfg.contactDepthScale * leverRatio;
+    }
+
+    const force = progress * effectiveness * depthQuality;
+
+    // Direction blend: more vertical at higher angles, more forward at lower angles
+    const upScale = 1.0 - cfg.directionBlend * (1 - progress);
+    const fwdScale = 1.0 + cfg.directionBlend * (1 - progress);
+
+    // Vertical impulse — scales with force, direction blend, and tuning
+    robot.velocityY += cfg.launchUp * force * upScale;
 
     // Forward impulse — pushes the robot away from the hinge in world space.
     // The flipper's forward direction in world space is (-sin(facingAngle), -cos(facingAngle)).
     const fwdX = -Math.sin(facingAngle);
     const fwdZ = -Math.cos(facingAngle);
-    robot.velocity.x += fwdX * cfg.launchForward * progress;
-    robot.velocity.z += fwdZ * cfg.launchForward * progress;
+    robot.velocity.x += fwdX * cfg.launchForward * force * fwdScale;
+    robot.velocity.z += fwdZ * cfg.launchForward * force * fwdScale;
 
     // Lateral assist — based on how far off-centre the robot is on the paddle
     const normalizedOffset = contact.localX / (FLIPPER_WIDTH / 2);
-    const lateralAssist = normalizedOffset * cfg.launchAssistMax * cfg.launchUp * progress;
+    const lateralAssist = normalizedOffset * cfg.launchAssistMax * cfg.launchUp * force;
     // Lateral direction in world space (perpendicular to forward)
     const latX = Math.cos(facingAngle);
     const latZ = -Math.sin(facingAngle);
