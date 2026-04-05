@@ -95,8 +95,15 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
 
     const cosR = Math.abs(Math.cos(rotation));
     const sinR = Math.abs(Math.sin(rotation));
-    const halfExtentX = (cosR * width + sinR * depth) / 2;
-    const halfExtentZ = (sinR * width + cosR * depth) / 2;
+
+    // Effective half-extents include sub-components:
+    //   - wheels extend wheelWidth beyond each side of the body
+    //   - flipper projects flipperDepth * cos(angle) beyond the front of the body
+    const effectiveHalfWidth = width / 2 + wheelWidth;
+    const effectiveHalfDepth = depth / 2 + flipperDepth * Math.cos(flipperAngle);
+
+    const halfExtentX = cosR * effectiveHalfWidth + sinR * effectiveHalfDepth;
+    const halfExtentZ = sinR * effectiveHalfWidth + cosR * effectiveHalfDepth;
 
     const limitX = half - halfExtentX;
     const limitZ = half - halfExtentZ;

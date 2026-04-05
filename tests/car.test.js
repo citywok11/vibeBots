@@ -389,3 +389,110 @@ describe('Car velocity and wall collision', () => {
     expect(car.velocity.z).toBeGreaterThan(0);
   });
 });
+
+describe('Car sub-component collision detection (wheels and flipper)', () => {
+  // Default geometry constants (mirrored from car.js for clarity in tests)
+  // width=2, depth=3, wheelRadius=0.6, wheelWidth=0.3, flipperDepth=1.2
+  // effectiveHalfWidth = width/2 + wheelWidth = 1 + 0.3 = 1.3
+  // effectiveHalfDepth (flat)  = depth/2 + flipperDepth*cos(0)   = 1.5 + 1.2 = 2.7
+  // effectiveHalfDepth (60deg) = depth/2 + flipperDepth*cos(π/3) = 1.5 + 0.6 = 2.1
+  // With arenaSize=50 (half=25):
+  //   wheel  limitX       = 25 - 1.3 = 23.7
+  //   flipper limitZ flat = 25 - 2.7 = 22.3
+  //   flipper limitZ 60°  = 25 - 2.1 = 22.9
+
+  describe('Wheel collision', () => {
+    it('should bounce off the east wall when the wheel extends into it even though the body centre is clear', () => {
+      // body-only limitX = 25 - 1 = 24; wheel limitX = 25 - 1.3 = 23.7
+      // At x=23.8: old code → no bounce (23.8 < 24), new code → bounce (23.8 > 23.7)
+      const arenaSize = 50;
+      const car = createCar({ x: 23.8, z: 0 });
+      const result = car.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(true);
+    });
+
+    it('should bounce off the west wall when the wheel extends into it even though the body centre is clear', () => {
+      const arenaSize = 50;
+      const car = createCar({ x: -23.8, z: 0 });
+      const result = car.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(true);
+    });
+
+    it('should not bounce when all wheels are inside the arena', () => {
+      // wheel outer edge at x = 23 + 1.3 = 24.3, well inside 25
+      const arenaSize = 50;
+      const car = createCar({ x: 23, z: 0 });
+      const result = car.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(false);
+    });
+
+    it('should clamp position so no wheel extends beyond the arena wall', () => {
+      const arenaSize = 50;
+      const half = arenaSize / 2;
+      const wheelRadius = 0.6;
+      const wheelWidth = wheelRadius * 0.5;
+      const wheelOffsetX = 2 / 2 + wheelWidth / 2; // width/2 + wheelWidth/2
+      const outerEdge = wheelOffsetX + wheelWidth / 2; // outermost wheel edge in local X
+
+      const car = createCar({ x: 40, z: 0 }); // well past the east wall
+      car.bounceOffWalls(arenaSize);
+      // After clamping, the wheel outer edge must sit at or inside the arena wall
+      expect(car.group.position.x + outerEdge).toBeLessThanOrEqual(half + 0.001);
+    });
+  });
+
+  describe('Flipper collision', () => {
+    it('should bounce off the north wall when the flat flipper extends into it even though the body centre is clear', () => {
+      // body-only limitZ = 25 - 1.5 = 23.5; flipper limitZ (flat) = 25 - 2.7 = 22.3
+      // At z=-23: old code → no bounce (23 < 23.5), new code → bounce (23 > 22.3)
+      const arenaSize = 50;
+      const car = createCar({ x: 0, z: -23 });
+      const result = car.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(true);
+    });
+
+    it('should bounce off the south wall when the flat flipper faces south and extends into it', () => {
+      // Rotate car 180°: flipper now faces +Z (south wall)
+      const arenaSize = 50;
+      const car = createCar({ x: 0, z: 23 });
+      car.turnLeft(Math.PI);
+      const result = car.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(true);
+    });
+
+    it('should not bounce when the flat flipper is inside the arena', () => {
+      // flipper tip at z = -22 - 2.7 = -24.7, inside the north wall at -25
+      const arenaSize = 50;
+      const car = createCar({ x: 0, z: -22 });
+      const result = car.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(false);
+    });
+
+    it('should allow the car closer to the wall when the flipper is fully raised', () => {
+      // flat  (angle=0):   limitZ = 25 - 2.7 = 22.3 → car at -22.5 bounces
+      // raised (angle=60°): limitZ = 25 - 2.1 = 22.9 → car at -22.5 does NOT bounce
+      const arenaSize = 50;
+
+      const carFlat = createCar({ x: 0, z: -22.5 });
+      expect(carFlat.bounceOffWalls(arenaSize).bounced).toBe(true);
+
+      const carRaised = createCar({ x: 0, z: -22.5 });
+      carRaised.activateFlipper();
+      carRaised.update(0.1); // 0.1s × 12 rad/s = 1.2 rad > π/3 → clamped at max angle
+      expect(carRaised.bounceOffWalls(arenaSize).bounced).toBe(false);
+    });
+
+    it('should clamp position so the flat flipper tip does not extend beyond the arena wall', () => {
+      const arenaSize = 50;
+      const half = arenaSize / 2;
+      const flipperDepth = 1.2;
+      const halfBodyDepth = 3 / 2; // car depth / 2
+
+      const car = createCar({ x: 0, z: -40 }); // well past the north wall
+      car.bounceOffWalls(arenaSize);
+      // Flipper tip in car-group space: position.z - halfBodyDepth - flipperDepth*cos(0)
+      const flipperTip = car.group.position.z - halfBodyDepth - flipperDepth;
+      expect(flipperTip).toBeGreaterThanOrEqual(-half - 0.001);
+    });
+  });
+});
