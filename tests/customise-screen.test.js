@@ -191,4 +191,88 @@ describe('CustomiseScreen', () => {
     const overlay = container.querySelector('.customise-screen-overlay');
     expect(overlay.style.backgroundColor).toContain('rgba');
   });
+
+  it('should show 3 item buttons in the MODEL section', () => {
+    screen.open();
+    const section = container.querySelector('.customise-section-model');
+    const buttons = section.querySelectorAll('.customise-item-button');
+    expect(buttons.length).toBe(3);
+  });
+
+  it('should show 3 item buttons in the WHEELS section', () => {
+    screen.open();
+    const section = container.querySelector('.customise-section-wheels');
+    const buttons = section.querySelectorAll('.customise-item-button');
+    expect(buttons.length).toBe(3);
+  });
+
+  it('should show 3 item buttons in the FLIPPER section', () => {
+    screen.open();
+    const section = container.querySelector('.customise-section-flipper');
+    const buttons = section.querySelectorAll('.customise-item-button');
+    expect(buttons.length).toBe(3);
+  });
+
+  it('model section should contain buttons for standard, wedge and heavy', () => {
+    screen.open();
+    const section = container.querySelector('.customise-section-model');
+    const ids = Array.from(section.querySelectorAll('.customise-item-button')).map(b => b.dataset.itemId);
+    expect(ids).toContain('standard');
+    expect(ids).toContain('wedge');
+    expect(ids).toContain('heavy');
+  });
+
+  it('wheels section should contain buttons for standard, offroad and racing', () => {
+    screen.open();
+    const section = container.querySelector('.customise-section-wheels');
+    const ids = Array.from(section.querySelectorAll('.customise-item-button')).map(b => b.dataset.itemId);
+    expect(ids).toContain('standard');
+    expect(ids).toContain('offroad');
+    expect(ids).toContain('racing');
+  });
+
+  it('flipper section should contain buttons for standard, heavy and light', () => {
+    screen.open();
+    const section = container.querySelector('.customise-section-flipper');
+    const ids = Array.from(section.querySelectorAll('.customise-item-button')).map(b => b.dataset.itemId);
+    expect(ids).toContain('standard');
+    expect(ids).toContain('heavy');
+    expect(ids).toContain('light');
+  });
+
+  it('selecting the wedge model should update selections.model to wedge', () => {
+    screen.open();
+    const section = container.querySelector('.customise-section-model');
+    const wedgeBtn = Array.from(section.querySelectorAll('.customise-item-button'))
+      .find(b => b.dataset.itemId === 'wedge');
+    wedgeBtn.click();
+    expect(screen.getSelections().model).toBe('wedge');
+  });
+
+  it('selecting offroad wheels should update selections.wheels to offroad', () => {
+    screen.open();
+    const section = container.querySelector('.customise-section-wheels');
+    const btn = Array.from(section.querySelectorAll('.customise-item-button'))
+      .find(b => b.dataset.itemId === 'offroad');
+    btn.click();
+    expect(screen.getSelections().wheels).toBe('offroad');
+  });
+
+  it('selecting racing wheels should update selections.wheels to racing', () => {
+    screen.open();
+    const section = container.querySelector('.customise-section-wheels');
+    const btn = Array.from(section.querySelectorAll('.customise-item-button'))
+      .find(b => b.dataset.itemId === 'racing');
+    btn.click();
+    expect(screen.getSelections().wheels).toBe('racing');
+  });
+
+  it('selecting heavy flipper should update selections.flipper to heavy', () => {
+    screen.open();
+    const section = container.querySelector('.customise-section-flipper');
+    const btn = Array.from(section.querySelectorAll('.customise-item-button'))
+      .find(b => b.dataset.itemId === 'heavy');
+    btn.click();
+    expect(screen.getSelections().flipper).toBe('heavy');
+  });
 });

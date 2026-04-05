@@ -8,50 +8,89 @@ export const CAR_BODY_DEPTH = 3;
 export const FLIPPER_BODY_DEPTH = 1.2;
 export const FLIPPER_MAX_ANGLE = Math.PI / 3; // 60 degrees
 
+export const MODEL_CATALOGUE = [
+  { id: 'standard', label: 'Standard', mass: 1.0, width: 2,   height: 1,    depth: 3,   color: 0xff4444 },
+  { id: 'wedge',    label: 'Wedge',    mass: 0.8, width: 2.6, height: 0.65, depth: 2.5, color: 0xff8800 },
+  { id: 'heavy',    label: 'Heavy',    mass: 2.0, width: 2.2, height: 1.8,  depth: 3.8, color: 0x4488ff },
+];
+
+export const WHEEL_CATALOGUE = [
+  { id: 'standard', label: 'Standard', radius: 0.6,  friction: 0.980, velocityMult: 1.0,  color: 0x222222 },
+  { id: 'offroad',  label: 'Off-Road', radius: 0.75, friction: 0.970, velocityMult: 0.85, color: 0x2a3a1a },
+  { id: 'racing',   label: 'Racing',   radius: 0.45, friction: 0.993, velocityMult: 1.2,  color: 0xaaaa00 },
+];
+
+export const FLIPPER_CATALOGUE = [
+  { id: 'standard', label: 'Standard', depth: 1.2, power: 1.0, maxAngle: Math.PI / 3,   upSpeed: 12, downSpeed: 4,  color: 0xcccccc },
+  { id: 'heavy',    label: 'Heavy',    depth: 1.8, power: 2.0, maxAngle: Math.PI / 2.5, upSpeed: 8,  downSpeed: 3,  color: 0x888888 },
+  { id: 'light',    label: 'Light',    depth: 0.8, power: 0.6, maxAngle: Math.PI / 4,   upSpeed: 20, downSpeed: 6,  color: 0xeeeeee },
+];
+
 export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
+  // Physics bounding-box dimensions are fixed to the standard model so that
+  // wall-bounce calculations remain stable regardless of which visual model is selected.
   const width = CAR_BODY_WIDTH;
   const height = 1;
   const depth = CAR_BODY_DEPTH;
 
-  const wheelRadius = options.wheelRadius || 0.6;
-  const wheelWidth = wheelRadius * 0.5;
-
-  // Group Y: wheels sit on the ground, body sits on top of wheels
+  // Standard wheel radius drives the group height; other catalogue radii are adjusted
+  // in local Y so every wheel type sits flush with the floor at this fixed group height.
+  const wheelRadius = options.wheelRadius || WHEEL_CATALOGUE[0].radius;
   const groupY = wheelRadius + height / 2;
 
   const group = new THREE.Group();
   group.position.set(startPos.x, groupY, startPos.z);
 
-  // Body
-  const bodyGeometry = new THREE.BoxGeometry(width, height, depth);
-  const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xff4444 });
-  const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-  body.castShadow = true;
-  group.add(body);
+  // --- Body meshes (one per MODEL_CATALOGUE entry) ---
+  const bodyMeshes = new Map();
+  for (const spec of MODEL_CATALOGUE) {
+    const geo = new THREE.BoxGeometry(spec.width, spec.height, spec.depth);
+    const mat = new THREE.MeshStandardMaterial({ color: spec.color });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = true;
+    mesh.visible = (spec.id === 'standard');
+    group.add(mesh);
+    bodyMeshes.set(spec.id, mesh);
+  }
+  const body = bodyMeshes.get('standard'); // retained for internal positioning references
 
-  // Wheels
-  const wheelGeometry = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelWidth, 16);
-  const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x222222 });
+  // --- Wheel sets (one set of 4 per WHEEL_CATALOGUE entry) ---
+  function buildWheelSet(spec) {
+    const r = spec.radius;
+    const wWidth = r * 0.5;
+    const offsetX = width / 2 + wWidth / 2;
+    const offsetZ = depth / 2 - 0.4;
+    // Adjust local Y so each wheel type sits on the floor regardless of groupY.
+    const localY = r - groupY;
+    const geo = new THREE.CylinderGeometry(r, r, wWidth, spec.id === 'offroad' ? 12 : 16);
+    const mat = new THREE.MeshStandardMaterial({ color: spec.color });
+    const positions = [
+      { x: -offsetX, z: -offsetZ },
+      { x:  offsetX, z: -offsetZ },
+      { x: -offsetX, z:  offsetZ },
+      { x:  offsetX, z:  offsetZ },
+    ];
+    return positions.map(pos => {
+      const wheel = new THREE.Mesh(geo, mat);
+      wheel.position.set(pos.x, localY, pos.z);
+      wheel.rotation.z = Math.PI / 2;
+      wheel.castShadow = true;
+      group.add(wheel);
+      return wheel;
+    });
+  }
 
-  const wheelOffsetX = width / 2 + wheelWidth / 2;
-  const wheelOffsetZ = depth / 2 - 0.4;
-  const wheelY = -height / 2;
-
-  const wheelPositions = [
-    { x: -wheelOffsetX, z: -wheelOffsetZ }, // front-left
-    { x:  wheelOffsetX, z: -wheelOffsetZ }, // front-right
-    { x: -wheelOffsetX, z:  wheelOffsetZ }, // back-left
-    { x:  wheelOffsetX, z:  wheelOffsetZ }, // back-right
-  ];
-
-  const wheels = wheelPositions.map(pos => {
-    const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
-    wheel.position.set(pos.x, wheelY, pos.z);
-    wheel.rotation.z = Math.PI / 2; // rotate cylinder to lie on its side
-    wheel.castShadow = true;
-    group.add(wheel);
-    return wheel;
-  });
+  // The standard wheel set uses options.wheelRadius so the existing API
+  // (createCar with a custom wheelRadius) keeps working.
+  const standardWheelSpec = { ...WHEEL_CATALOGUE[0], radius: wheelRadius };
+  const wheelSets = new Map();
+  wheelSets.set('standard', buildWheelSet(standardWheelSpec));
+  for (const spec of WHEEL_CATALOGUE.slice(1)) {
+    const set = buildWheelSet(spec);
+    set.forEach(w => { w.visible = false; });
+    wheelSets.set(spec.id, set);
+  }
+  const wheelWidth = wheelRadius * 0.5; // used for the standard set's bounce calc
 
   // Flamethrower - barrel at the middle of the car (top center)
   const flamethrowerGeometry = new THREE.CylinderGeometry(0.1, 0.15, 1.0, 8);
@@ -113,21 +152,26 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     flamethrowerActive = false;
   }
 
-  // Flipper - wedge at the front of the car
-  const flipperWidth = width;
-  const flipperHeight = 0.15;
-  const flipperDepth = FLIPPER_BODY_DEPTH;
-  const flipperGeometry = new THREE.BoxGeometry(flipperWidth, flipperHeight, flipperDepth);
-  // Shift geometry pivot to the back edge so it rotates from the hinge point
-  flipperGeometry.translate(0, 0, -flipperDepth / 2);
-  const flipperMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc });
-  const flipper = new THREE.Mesh(flipperGeometry, flipperMaterial);
-  flipper.position.set(0, -height / 2, -depth / 2);
-  flipper.castShadow = true;
-  group.add(flipper);
+  // --- Flipper meshes (one per FLIPPER_CATALOGUE entry) ---
+  function buildFlipperMesh(spec) {
+    const geo = new THREE.BoxGeometry(width, spec.depth < 1 ? 0.1 : spec.depth < 1.5 ? 0.15 : 0.25, spec.depth);
+    geo.translate(0, 0, -spec.depth / 2);
+    const mat = new THREE.MeshStandardMaterial({ color: spec.color });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(0, -height / 2, -depth / 2);
+    mesh.castShadow = true;
+    group.add(mesh);
+    return mesh;
+  }
 
-  const FLIPPER_UP_SPEED = 12;
-  const FLIPPER_DOWN_SPEED = 4;
+  const flipperMeshes = new Map();
+  for (const spec of FLIPPER_CATALOGUE) {
+    const mesh = buildFlipperMesh(spec);
+    mesh.visible = (spec.id === 'standard');
+    flipperMeshes.set(spec.id, mesh);
+  }
+  const flipper = flipperMeshes.get('standard'); // retained for backward compatibility
+
   let flipperAngle = 0;
   let flipperActive = false;
 
@@ -138,22 +182,68 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
 
   let rotation = 0;
   const velocity = { x: 0, z: 0 };
-  const mass = options.mass ?? 1;
+  let currentMass = options.mass ?? MODEL_CATALOGUE[0].mass;
   const collisionRadius = Math.sqrt((width / 2) ** 2 + (depth / 2) ** 2);
   let hasWheels = true;
   let hasFlipper = true;
 
+  // Active variant tracking
+  let activeModelId = 'standard';
+  let activeWheelId = 'standard';
+  let activeFlipperId = 'standard';
+
+  // Mutable physics parameters driven by selected variants
+  let currentFriction = FRICTION;
+  let currentVelocityMult = 1.0;
+  let currentWheelWidth = wheelWidth;
+  let currentFlipperPower = FLIPPER_CATALOGUE[0].power;
+  let currentFlipperMaxAngle = FLIPPER_CATALOGUE[0].maxAngle;
+  let currentFlipperUpSpeed = FLIPPER_CATALOGUE[0].upSpeed;
+  let currentFlipperDownSpeed = FLIPPER_CATALOGUE[0].downSpeed;
+  let currentFlipperDepth = FLIPPER_CATALOGUE[0].depth;
+
   function applyCustomisation(selections = {}) {
     if ('model' in selections) {
-      body.visible = selections.model !== null;
+      activeModelId = selections.model;
+      bodyMeshes.forEach((mesh, id) => { mesh.visible = id === selections.model; });
+      if (selections.model !== null) {
+        const spec = MODEL_CATALOGUE.find(m => m.id === selections.model);
+        if (spec) currentMass = spec.mass;
+      }
     }
     if ('wheels' in selections) {
       hasWheels = selections.wheels !== null;
-      wheels.forEach(w => { w.visible = hasWheels; });
+      activeWheelId = selections.wheels;
+      wheelSets.forEach((set, id) => {
+        const visible = id === selections.wheels;
+        set.forEach(w => { w.visible = visible; });
+      });
+      if (selections.wheels !== null) {
+        const spec = WHEEL_CATALOGUE.find(w => w.id === selections.wheels);
+        if (spec) {
+          currentFriction = spec.friction;
+          currentVelocityMult = spec.velocityMult;
+          currentWheelWidth = spec.radius * 0.5;
+        }
+      } else {
+        currentFriction = FRICTION;
+        currentVelocityMult = 1.0;
+      }
     }
     if ('flipper' in selections) {
       hasFlipper = selections.flipper !== null;
-      flipper.visible = hasFlipper;
+      activeFlipperId = selections.flipper;
+      flipperMeshes.forEach((mesh, id) => { mesh.visible = id === selections.flipper; });
+      if (selections.flipper !== null) {
+        const spec = FLIPPER_CATALOGUE.find(f => f.id === selections.flipper);
+        if (spec) {
+          currentFlipperPower = spec.power;
+          currentFlipperMaxAngle = spec.maxAngle;
+          currentFlipperUpSpeed = spec.upSpeed;
+          currentFlipperDownSpeed = spec.downSpeed;
+          currentFlipperDepth = spec.depth;
+        }
+      }
     }
   }
 
@@ -166,7 +256,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     hasWheels = true;
     flipperAngle = 0;
     flipperActive = false;
-    flipper.rotation.x = 0;
+    flipperMeshes.forEach(mesh => { mesh.rotation.x = 0; });
     flamethrowerActive = false;
     flame.visible = false;
     particles.forEach(p => {
@@ -179,8 +269,8 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
 
   function accelerate(amount) {
     if (!hasWheels) return;
-    velocity.x += -Math.sin(rotation) * amount;
-    velocity.z += -Math.cos(rotation) * amount;
+    velocity.x += -Math.sin(rotation) * amount * currentVelocityMult;
+    velocity.z += -Math.cos(rotation) * amount * currentVelocityMult;
   }
 
   function turnLeft(amount) {
@@ -203,10 +293,10 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     const sinR = Math.abs(Math.sin(rotation));
 
     // Effective half-extents include sub-components:
-    //   - wheels extend wheelWidth beyond each side of the body
-    //   - flipper projects flipperDepth * cos(angle) beyond the front of the body
-    const effectiveHalfWidth = width / 2 + wheelWidth;
-    const effectiveHalfDepth = depth / 2 + (hasFlipper ? flipperDepth * Math.cos(flipperAngle) : 0);
+    //   - wheels extend currentWheelWidth beyond each side of the body
+    //   - flipper projects currentFlipperDepth * cos(angle) beyond the front of the body
+    const effectiveHalfWidth = width / 2 + currentWheelWidth;
+    const effectiveHalfDepth = depth / 2 + (hasFlipper ? currentFlipperDepth * Math.cos(flipperAngle) : 0);
 
     const halfExtentX = cosR * effectiveHalfWidth + sinR * effectiveHalfDepth;
     const halfExtentZ = sinR * effectiveHalfWidth + cosR * effectiveHalfDepth;
@@ -240,21 +330,22 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   function update(dt) {
     group.position.x += velocity.x * dt;
     group.position.z += velocity.z * dt;
-    velocity.x *= FRICTION;
-    velocity.z *= FRICTION;
+    velocity.x *= currentFriction;
+    velocity.z *= currentFriction;
 
     // Flipper animation
+    const activeFlipper = flipperMeshes.get(activeFlipperId || 'standard');
     if (flipperActive) {
-      flipperAngle += FLIPPER_UP_SPEED * dt;
-      if (flipperAngle >= FLIPPER_MAX_ANGLE) {
-        flipperAngle = FLIPPER_MAX_ANGLE;
+      flipperAngle += currentFlipperUpSpeed * dt;
+      if (flipperAngle >= currentFlipperMaxAngle) {
+        flipperAngle = currentFlipperMaxAngle;
         flipperActive = false;
       }
     } else if (flipperAngle > 0) {
-      flipperAngle -= FLIPPER_DOWN_SPEED * dt;
+      flipperAngle -= currentFlipperDownSpeed * dt;
       if (flipperAngle < 0) flipperAngle = 0;
     }
-    flipper.rotation.x = -flipperAngle;
+    if (activeFlipper) activeFlipper.rotation.x = -flipperAngle;
 
     // Flamethrower animation
     flame.visible = flamethrowerActive;
@@ -283,9 +374,9 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
 
   return {
     group,
-    mesh: body,
-    wheels,
-    flipper,
+    get mesh() { return bodyMeshes.get(activeModelId || 'standard'); },
+    get wheels() { return wheelSets.get(activeWheelId || 'standard'); },
+    get flipper() { return flipperMeshes.get(activeFlipperId || 'standard'); },
     flamethrower,
     flame,
     particles,
@@ -294,7 +385,10 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     get flamethrowerActive() { return flamethrowerActive; },
     get rotation() { return rotation; },
     get velocity() { return velocity; },
-    get mass() { return mass; },
+    get mass() { return currentMass; },
+    get flipperPower() { return currentFlipperPower; },
+    get flipperDepth() { return currentFlipperDepth; },
+    get flipperMaxAngle() { return currentFlipperMaxAngle; },
     collisionRadius,
     accelerate,
     activateFlipper,
