@@ -410,13 +410,15 @@ describe('Car velocity and wall collision', () => {
 describe('Car sub-component collision detection (wheels and flipper)', () => {
   // Default geometry constants (mirrored from car.js for clarity in tests)
   // width=2, depth=3, wheelRadius=0.6, wheelWidth=0.3, flipperDepth=1.2
-  // effectiveHalfWidth = width/2 + wheelWidth = 1 + 0.3 = 1.3
-  // effectiveHalfDepth (flat)  = depth/2 + flipperDepth*cos(0)   = 1.5 + 1.2 = 2.7
-  // effectiveHalfDepth (60deg) = depth/2 + flipperDepth*cos(π/3) = 1.5 + 0.6 = 2.1
-  // With arenaSize=50 (half=25):
-  //   wheel  limitX       = 25 - 1.3 = 23.7
-  //   flipper limitZ flat = 25 - 2.7 = 22.3
-  //   flipper limitZ 60°  = 25 - 2.1 = 22.9
+  // halfW          = width/2 + wheelWidth = 1 + 0.3 = 1.3
+  // frontHalfDepth (flat)  = depth/2 + flipperDepth*cos(0)   = 1.5 + 1.2 = 2.7
+  // frontHalfDepth (60deg) = depth/2 + flipperDepth*cos(π/3) = 1.5 + 0.6 = 2.1
+  // backHalfDepth          = depth/2 = 1.5   (no flipper at the back)
+  // With arenaSize=50 (half=25) at rotation=0:
+  //   wheel  limitX            = 25 - 1.3 = 23.7
+  //   front (flipper) limitZ   = 25 - 2.7 = 22.3  (north wall, flipper faces north)
+  //   front (60°) limitZ       = 25 - 2.1 = 22.9
+  //   back  limitZ             = 25 - 1.5 = 23.5  (south wall, back faces south)
 
   describe('Wheel collision', () => {
     it('should bounce off the east wall when the wheel extends into it even though the body centre is clear', () => {
@@ -453,6 +455,66 @@ describe('Car sub-component collision detection (wheels and flipper)', () => {
       car.bounceOffWalls(arenaSize);
       // After clamping, the wheel outer edge must sit at or inside the arena wall
       expect(car.group.position.x + effectiveHalfWidth).toBeLessThanOrEqual(half + 0.001);
+    });
+  });
+
+  describe('Asymmetric front/back collision (flipper only at front)', () => {
+    // The car is NOT symmetric in depth: the flipper only projects from the front.
+    // frontHalfDepth (flat) = depth/2 + flipperDepth = 1.5 + 1.2 = 2.7
+    // backHalfDepth          = depth/2               = 1.5
+    // With arenaSize=50 (half=25):
+    //   front limit (toward north wall) = 25 - 2.7 = 22.3  (flipper tip touches wall)
+    //   back  limit (toward south wall) = 25 - 1.5 = 23.5  (back body edge touches wall)
+    const CAR_DEPTH = 3; // matches depth constant in car.js
+
+    it('should not bounce off the south wall when facing north and the back end is clear', () => {
+      // Car at z=22.5, rotation=0 (facing north, flipper at front/north, back at south).
+      // Back of body at 22.5 + 1.5 = 24.0 — safely inside south wall at 25.
+      // Old (buggy) code used symmetric depth 2.7 → limit = 22.3 → 22.5 > 22.3 → false bounce.
+      const arenaSize = 50;
+      const car = createCar({ x: 0, z: 22.5 });
+      const result = car.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(false);
+    });
+
+    it('should bounce off the south wall when facing north and the back end reaches the wall', () => {
+      // Car at z=23.6, rotation=0. Back at 23.6 + 1.5 = 25.1 — past south wall.
+      const arenaSize = 50;
+      const car = createCar({ x: 0, z: 23.6 });
+      const result = car.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(true);
+    });
+
+    it('should clamp south wall collision to back half-depth when facing north', () => {
+      // Car launched well past south wall (rotation=0, back facing south).
+      // After clamping, the back edge (car.z + backHalfDepth) should sit at the wall.
+      const arenaSize = 50;
+      const half = arenaSize / 2;
+      const backHalfDepth = CAR_DEPTH / 2;
+      const car = createCar({ x: 0, z: 40 });
+      car.bounceOffWalls(arenaSize);
+      expect(car.group.position.z + backHalfDepth).toBeCloseTo(half, 5);
+    });
+
+    it('should not bounce off the north wall when facing south and the back end is clear', () => {
+      // Car at z=-22.5, rotation=π (facing south, back faces north).
+      // Back of body at -22.5 - 1.5 = -24.0 — inside north wall at -25.
+      const arenaSize = 50;
+      const car = createCar({ x: 0, z: -22.5 });
+      car.turnLeft(Math.PI); // rotation = π → facing south, back toward north
+      const result = car.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(false);
+    });
+
+    it('should clamp north wall collision to back half-depth when facing south', () => {
+      const arenaSize = 50;
+      const half = arenaSize / 2;
+      const backHalfDepth = CAR_DEPTH / 2;
+      const car = createCar({ x: 0, z: -40 });
+      car.turnLeft(Math.PI);
+      car.bounceOffWalls(arenaSize);
+      // Back of car (at car.z - backHalfDepth when rotation=π) sits at north wall
+      expect(car.group.position.z - backHalfDepth).toBeCloseTo(-half, 5);
     });
   });
 
@@ -838,6 +900,181 @@ describe('Car applyCustomisation()', () => {
     car.activateFlipper();
     car.update(0.5);
     expect(car.flipperAngle).toBeGreaterThan(0);
+  });
+
+  it('should hide the flamethrower barrel when flamethrower selection is null', () => {
+    const car = createCar();
+    car.applyCustomisation({ flamethrower: null });
+    expect(car.flamethrower.visible).toBe(false);
+  });
+
+  it('should show the flamethrower barrel when flamethrower selection is standard', () => {
+    const car = createCar();
+    car.flamethrower.visible = false;
+    car.applyCustomisation({ flamethrower: 'standard' });
+    expect(car.flamethrower.visible).toBe(true);
+  });
+
+  it('should prevent activateFlamethrower when flamethrower is deselected', () => {
+    const car = createCar();
+    car.applyCustomisation({ flamethrower: null });
+    car.activateFlamethrower();
+    car.update(0.016);
+    expect(car.flamethrowerActive).toBe(false);
+    expect(car.flame.visible).toBe(false);
+  });
+
+  it('should allow activateFlamethrower again when flamethrower is re-selected after being deselected', () => {
+    const car = createCar();
+    car.applyCustomisation({ flamethrower: null });
+    car.activateFlamethrower();
+    car.update(0.016);
+    expect(car.flamethrowerActive).toBe(false);
+    car.applyCustomisation({ flamethrower: 'standard' });
+    car.activateFlamethrower();
+    car.update(0.016);
+    expect(car.flamethrowerActive).toBe(true);
+    expect(car.flame.visible).toBe(true);
+  });
+
+  it('should hide flame and particles immediately when flamethrower is deselected while active', () => {
+    const car = createCar();
+    car.activateFlamethrower();
+    car.update(0.1);
+    car.applyCustomisation({ flamethrower: null });
+    expect(car.flame.visible).toBe(false);
+    car.particles.forEach(p => {
+      expect(p.mesh.visible).toBe(false);
+    });
+  });
+});
+
+describe('Car angular velocity (yaw spin from collisions)', () => {
+  it('should expose an angularVelocity property starting at zero', () => {
+    const car = createCar();
+    expect(car.angularVelocity).toBe(0);
+  });
+
+  it('should expose an applyAngularImpulse method', () => {
+    const car = createCar();
+    expect(typeof car.applyAngularImpulse).toBe('function');
+  });
+
+  it('should change angularVelocity when applyAngularImpulse is called', () => {
+    const car = createCar();
+    car.applyAngularImpulse(2);
+    expect(car.angularVelocity).toBe(2);
+  });
+
+  it('should accumulate angular impulses', () => {
+    const car = createCar();
+    car.applyAngularImpulse(1);
+    car.applyAngularImpulse(0.5);
+    expect(car.angularVelocity).toBeCloseTo(1.5);
+  });
+
+  it('should rotate the car over time based on angularVelocity', () => {
+    const car = createCar();
+    car.applyAngularImpulse(5);
+    const rotBefore = car.rotation;
+    car.update(0.1);
+    expect(car.rotation).not.toBe(rotBefore);
+  });
+
+  it('should apply angular friction so angularVelocity decays over time', () => {
+    const car = createCar();
+    car.applyAngularImpulse(5);
+    car.update(0.1);
+    expect(car.angularVelocity).toBeLessThan(5);
+    expect(car.angularVelocity).toBeGreaterThan(0);
+  });
+
+  it('should eventually stop spinning (angular velocity decays to zero)', () => {
+    const car = createCar();
+    car.applyAngularImpulse(2);
+    for (let i = 0; i < 200; i++) car.update(0.016);
+    expect(car.angularVelocity).toBe(0);
+  });
+
+  it('should reset angularVelocity on reset()', () => {
+    const car = createCar();
+    car.applyAngularImpulse(5);
+    car.update(0.1);
+    car.reset();
+    expect(car.angularVelocity).toBe(0);
+  });
+});
+
+describe('Car collision tilt (pitch and roll)', () => {
+  it('should expose pitchTilt and rollTilt properties starting at zero', () => {
+    const car = createCar();
+    expect(car.pitchTilt).toBe(0);
+    expect(car.rollTilt).toBe(0);
+  });
+
+  it('should expose an applyImpactTilt method', () => {
+    const car = createCar();
+    expect(typeof car.applyImpactTilt).toBe('function');
+  });
+
+  it('should set pitchTilt when hit from the front (negative Z in local frame)', () => {
+    const car = createCar();
+    // Hit from the front: normal pointing toward car = (0, 1) in world with rotation 0
+    car.applyImpactTilt(0, 1, 5);
+    expect(car.pitchTilt).not.toBe(0);
+  });
+
+  it('should set rollTilt when hit from the side', () => {
+    const car = createCar();
+    // Hit from the right side: normal pointing toward car = (-1, 0)
+    car.applyImpactTilt(-1, 0, 5);
+    expect(car.rollTilt).not.toBe(0);
+  });
+
+  it('should clamp tilt to maximum value', () => {
+    const car = createCar();
+    car.applyImpactTilt(1, 0, 1000);
+    expect(Math.abs(car.rollTilt)).toBeLessThanOrEqual(0.3 + 0.001);
+    expect(Math.abs(car.pitchTilt)).toBeLessThanOrEqual(0.3 + 0.001);
+  });
+
+  it('should decay tilt back to zero over time', () => {
+    const car = createCar();
+    car.applyImpactTilt(1, 1, 5);
+    const pitchBefore = Math.abs(car.pitchTilt);
+    car.update(0.1);
+    expect(Math.abs(car.pitchTilt)).toBeLessThan(pitchBefore);
+  });
+
+  it('should fully decay tilt to zero after enough time', () => {
+    const car = createCar();
+    car.applyImpactTilt(1, 1, 5);
+    for (let i = 0; i < 200; i++) car.update(0.016);
+    expect(car.pitchTilt).toBe(0);
+    expect(car.rollTilt).toBe(0);
+  });
+
+  it('should reset pitchTilt and rollTilt on reset()', () => {
+    const car = createCar();
+    car.applyImpactTilt(1, 1, 5);
+    car.reset();
+    expect(car.pitchTilt).toBe(0);
+    expect(car.rollTilt).toBe(0);
+  });
+
+  it('should apply tilt relative to car rotation', () => {
+    // Car rotated 90 degrees: a world-space X hit should now affect pitch, not roll
+    const car1 = createCar();
+    car1.applyImpactTilt(1, 0, 5); // side hit → roll
+    const roll1 = car1.rollTilt;
+
+    const car2 = createCar();
+    car2.turnLeft(Math.PI / 2); // rotate 90°
+    car2.applyImpactTilt(1, 0, 5); // same world-space hit, but now it's a front hit in local frame
+    const roll2 = car2.rollTilt;
+
+    // car1 should have more roll than car2 (car2's hit went to pitch instead)
+    expect(Math.abs(roll1)).toBeGreaterThan(Math.abs(roll2));
   });
 });
 

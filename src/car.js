@@ -143,8 +143,10 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   }
 
   let flamethrowerActive = false;
+  let hasFlamethrower = true;
 
   function activateFlamethrower() {
+    if (!hasFlamethrower) return;
     flamethrowerActive = true;
   }
 
@@ -192,6 +194,13 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   const collisionRadius = Math.sqrt((width / 2) ** 2 + (depth / 2) ** 2);
   let hasWheels = true;
   let hasFlipper = true;
+  let angularVelocity = 0;
+
+  // Pitch and roll tilt from collision impacts (visual only)
+  const TILT_DECAY = 8;    // how fast tilt returns to zero (per second)
+  const TILT_MAX = 0.3;    // max tilt in radians (~17 degrees)
+  let pitchTilt = 0;       // rotation around X axis (forward/back rock)
+  let rollTilt = 0;        // rotation around Z axis (side-to-side rock)
 
   // Active variant tracking
   let activeModelId = 'standard';
@@ -251,14 +260,28 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
         }
       }
     }
+    if ('flamethrower' in selections) {
+      hasFlamethrower = selections.flamethrower !== null;
+      flamethrower.visible = hasFlamethrower;
+      if (!hasFlamethrower) {
+        flamethrowerActive = false;
+        flame.visible = false;
+        particles.forEach(p => { p.mesh.visible = false; });
+      }
+    }
   }
 
   function reset() {
     group.position.set(startPos.x, groupY, startPos.z);
     rotation = 0;
     group.rotation.y = 0;
+    group.rotation.x = 0;
+    group.rotation.z = 0;
     velocity.x = 0;
     velocity.z = 0;
+    angularVelocity = 0;
+    pitchTilt = 0;
+    rollTilt = 0;
     hasWheels = true;
     flipperAngle = 0;
     flipperActive = false;
@@ -295,37 +318,49 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     const half = arenaSize / 2;
     let bounced = false;
 
-    const cosR = Math.abs(Math.cos(rotation));
-    const sinR = Math.abs(Math.sin(rotation));
+    const cosR = Math.cos(rotation);
+    const sinR = Math.sin(rotation);
 
-    // Effective half-extents include sub-components:
-    //   - wheels extend currentWheelWidth beyond each side of the body
-    //   - flipper projects currentFlipperDepth * cos(angle) beyond the front of the body
-    const effectiveHalfWidth = width / 2 + currentWheelWidth;
-    const effectiveHalfDepth = depth / 2 + (hasFlipper ? currentFlipperDepth * Math.cos(flipperAngle) : 0);
+    // The car is asymmetric in depth: the flipper projects only from the front.
+    // Use the four corners of the effective bounding shape to compute the true
+    // axis-aligned extents at any rotation, rather than a symmetric rectangle.
+    //   halfW          = width/2 + currentWheelWidth (wheels extend past each side)
+    //   frontHalfDepth = depth/2 + currentFlipperDepth*cos(angle) (flipper at front)
+    //   backHalfDepth  = depth/2 (back of body, no flipper)
+    const halfW = width / 2 + currentWheelWidth;
+    const frontHalfDepth = depth / 2 + (hasFlipper ? currentFlipperDepth * Math.cos(flipperAngle) : 0);
+    const backHalfDepth = depth / 2;
 
-    const halfExtentX = cosR * effectiveHalfWidth + sinR * effectiveHalfDepth;
-    const halfExtentZ = sinR * effectiveHalfWidth + cosR * effectiveHalfDepth;
+    let maxX = -Infinity, minX = Infinity;
+    let maxZ = -Infinity, minZ = Infinity;
 
-    const limitX = half - halfExtentX;
-    const limitZ = half - halfExtentZ;
+    for (const lz of [-frontHalfDepth, backHalfDepth]) {
+      for (const lx of [-halfW, halfW]) {
+        const wx = cosR * lx + sinR * lz;
+        const wz = -sinR * lx + cosR * lz;
+        if (wx > maxX) maxX = wx;
+        if (wx < minX) minX = wx;
+        if (wz > maxZ) maxZ = wz;
+        if (wz < minZ) minZ = wz;
+      }
+    }
 
-    if (group.position.x <= -limitX) {
-      group.position.x = -limitX;
+    if (group.position.x + minX <= -half) {
+      group.position.x = -half - minX;
       velocity.x = Math.abs(velocity.x) * RESTITUTION;
       bounced = true;
-    } else if (group.position.x >= limitX) {
-      group.position.x = limitX;
+    } else if (group.position.x + maxX >= half) {
+      group.position.x = half - maxX;
       velocity.x = -Math.abs(velocity.x) * RESTITUTION;
       bounced = true;
     }
 
-    if (group.position.z <= -limitZ) {
-      group.position.z = -limitZ;
+    if (group.position.z + minZ <= -half) {
+      group.position.z = -half - minZ;
       velocity.z = Math.abs(velocity.z) * RESTITUTION;
       bounced = true;
-    } else if (group.position.z >= limitZ) {
-      group.position.z = limitZ;
+    } else if (group.position.z + maxZ >= half) {
+      group.position.z = half - maxZ;
       velocity.z = -Math.abs(velocity.z) * RESTITUTION;
       bounced = true;
     }
@@ -338,6 +373,21 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     group.position.z += velocity.z * dt;
     velocity.x *= currentFriction;
     velocity.z *= currentFriction;
+
+    // Apply angular velocity (yaw spin from collisions)
+    const ANGULAR_FRICTION = 0.95;
+    rotation += angularVelocity * dt;
+    angularVelocity *= ANGULAR_FRICTION;
+    if (Math.abs(angularVelocity) < 0.01) angularVelocity = 0;
+
+    // Decay pitch and roll tilt back to zero
+    pitchTilt *= Math.max(0, 1 - TILT_DECAY * dt);
+    rollTilt *= Math.max(0, 1 - TILT_DECAY * dt);
+    if (Math.abs(pitchTilt) < 0.001) pitchTilt = 0;
+    if (Math.abs(rollTilt) < 0.001) rollTilt = 0;
+
+    // Apply all rotations to the group
+    group.rotation.set(pitchTilt, rotation, rollTilt);
 
     // Flipper animation
     const activeFlipper = flipperMeshes.get(activeFlipperId || 'standard');
@@ -378,6 +428,41 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     }
   }
 
+  /**
+   * Applies a yaw angular impulse from a collision.
+   * @param {number} impulse - Angular velocity change in radians/s
+   */
+  function applyAngularImpulse(impulse) {
+    angularVelocity += impulse;
+  }
+
+  /**
+   * Applies a visual pitch and roll tilt based on the collision impact direction.
+   * The tilt is relative to the car's local frame: a hit from the front/back
+   * produces pitch, a hit from the side produces roll.
+   *
+   * @param {number} nx - X component of collision normal (world space)
+   * @param {number} nz - Z component of collision normal (world space)
+   * @param {number} speed - Impact speed (scales tilt magnitude)
+   */
+  function applyImpactTilt(nx, nz, speed) {
+    const TILT_SCALE = 0.04; // how much tilt per unit of impact speed
+
+    // Transform the world-space impact normal into the car's local frame
+    const cosR = Math.cos(rotation);
+    const sinR = Math.sin(rotation);
+    const localX = nx * cosR - nz * sinR;
+    const localZ = nx * sinR + nz * cosR;
+
+    // localZ → pitch (hit from front/back rocks forward/back)
+    // localX → roll (hit from left/right rocks side to side)
+    const rawPitch = -localZ * speed * TILT_SCALE;
+    const rawRoll = localX * speed * TILT_SCALE;
+
+    pitchTilt = Math.max(-TILT_MAX, Math.min(TILT_MAX, pitchTilt + rawPitch));
+    rollTilt = Math.max(-TILT_MAX, Math.min(TILT_MAX, rollTilt + rawRoll));
+  }
+
   return {
     group,
     get mesh() { return bodyMeshes.get(activeModelId || 'standard'); },
@@ -395,6 +480,9 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     get flipperPower() { return currentFlipperPower; },
     get flipperDepth() { return currentFlipperDepth; },
     get flipperMaxAngle() { return currentFlipperMaxAngle; },
+    get angularVelocity() { return angularVelocity; },
+    get pitchTilt() { return pitchTilt; },
+    get rollTilt() { return rollTilt; },
     collisionRadius,
     accelerate,
     activateFlipper,
@@ -406,5 +494,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     update,
     reset,
     applyCustomisation,
+    applyAngularImpulse,
+    applyImpactTilt,
   };
 }
