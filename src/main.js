@@ -4,6 +4,7 @@ import { createCar } from './car.js';
 import { createRobot } from './robot.js';
 import { createInputManager } from './input.js';
 import { createMenu } from './menu.js';
+import { createRoguelikeMenu } from './roguelike-menu.js';
 import { createKeyBindingsScreen } from './keybindings-screen.js';
 import { createHomeScreen } from './home-screen.js';
 import { createOptionsScreen } from './options-screen.js';
@@ -59,6 +60,7 @@ const homeScreen = createHomeScreen(document.body);
 const optionsScreen = createOptionsScreen(document.body);
 const exitScreen = createExitScreen(document.body);
 const menu = createMenu(document.body);
+const roguelikeMenu = createRoguelikeMenu(document.body);
 const customiseScreen = createCustomiseScreen(document.body);
 const keyBindingsScreen = createKeyBindingsScreen(document.body, input);
 
@@ -73,7 +75,7 @@ function gameLoop(time) {
   const dt = (time - lastTime) / 1000;
   lastTime = time;
 
-  if (menu.isOpen() || customiseScreen.isOpen()) {
+  if (menu.isOpen() || customiseScreen.isOpen() || roguelikeMenu.isOpen()) {
     renderer.render(scene, camera);
     rafId = requestAnimationFrame(gameLoop);
     return;
@@ -146,6 +148,9 @@ function stopLoop() {
 
 const game = createGameController({ homeScreen, menu, onStart: startLoop, onStop: stopLoop });
 
+// Roguelike mode state
+let roguelikeRunning = false;
+
 // Show home screen on startup
 homeScreen.open();
 
@@ -160,6 +165,12 @@ homeScreen.onOptions(() => {
 homeScreen.onExit(() => {
   homeScreen.close();
   exitScreen.open();
+});
+
+homeScreen.onRogueLike(() => {
+  homeScreen.close();
+  roguelikeRunning = true;
+  startLoop();
 });
 
 // Exit screen callbacks
@@ -197,8 +208,12 @@ window.addEventListener('keydown', (e) => {
     keyBindingsScreen.handleKeyPress(e.code);
     return;
   }
-  if (e.code === 'Escape' && game.isRunning()) {
-    game.handleEscape();
+  if (e.code === 'Escape') {
+    if (game.isRunning()) {
+      game.handleEscape();
+    } else if (roguelikeRunning) {
+      roguelikeMenu.toggle();
+    }
   }
 });
 
@@ -217,6 +232,19 @@ customiseScreen.onClose(() => {
 menu.onOptions(() => {
   menu.close();
   keyBindingsReturnTo = () => menu.open();
+  optionsScreen.open();
+});
+
+roguelikeMenu.onBackToMainMenu(() => {
+  roguelikeRunning = false;
+  roguelikeMenu.close();
+  stopLoop();
+  homeScreen.open();
+});
+
+roguelikeMenu.onOptions(() => {
+  roguelikeMenu.close();
+  keyBindingsReturnTo = () => roguelikeMenu.open();
   optionsScreen.open();
 });
 
