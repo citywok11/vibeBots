@@ -140,7 +140,8 @@ function createItemButton(item, isSelected, visualFactory) {
   return btn;
 }
 
-function createSection(sectionTitle, items, selectionKey, selections, visualFactory, allowDeselect = true) {
+function createSection(sectionTitle, items, selectionKey, selections, visualFactory, options = {}) {
+  const { allowDeselect = true } = options;
   const section = document.createElement('div');
   section.className = `customise-section customise-section-${selectionKey}`;
   section.style.cssText = 'margin-bottom: 28px;';
@@ -251,7 +252,7 @@ export function createCustomiseScreen(container) {
   `;
   panel.appendChild(title);
 
-  panel.appendChild(createSection('Model', CATALOGUE.models, 'model', selections, createModelVisual, false));
+  panel.appendChild(createSection('Model', CATALOGUE.models, 'model', selections, createModelVisual, { allowDeselect: false }));
   panel.appendChild(createSection('Wheels', CATALOGUE.wheels, 'wheels', selections, createWheelVisual));
   panel.appendChild(createSection('Flipper', CATALOGUE.flippers, 'flipper', selections, createFlipperVisual));
   panel.appendChild(createSection('Flamethrower', CATALOGUE.flamethrowers, 'flamethrower', selections, createFlamethrowerVisual));

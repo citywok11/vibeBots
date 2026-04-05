@@ -766,6 +766,6 @@ describe('Car applyCustomisation()', () => {
     expect(car.velocity.x).toBe(0);
     car.applyCustomisation({ wheels: 'standard' });
     car.accelerate(10);
-    expect(car.velocity.x !== 0 || car.velocity.z !== 0).toBe(true);
+    expect(Math.abs(car.velocity.x) + Math.abs(car.velocity.z)).toBeGreaterThan(0);
   });
 });
