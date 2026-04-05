@@ -47,7 +47,7 @@ directionalLight.castShadow = true;
 scene.add(directionalLight);
 
 // Arena
-const ARENA_SIZE = 50;
+const ARENA_SIZE = 70;
 const arena = createArena(ARENA_SIZE, { pitCutout: DEFAULT_PIT_SIZE });
 scene.add(arena.group);
 

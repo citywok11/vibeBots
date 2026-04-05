@@ -96,3 +96,60 @@ describe('Audience and Stands', () => {
     expect(largeStandWidth).toBeGreaterThan(smallStandWidth);
   });
 });
+
+describe('Corner Cones', () => {
+  it('should create 4 corner cone meshes', () => {
+    const arena = createArena(50);
+    expect(arena.cornerCones).toBeDefined();
+    expect(arena.cornerCones).toHaveLength(4);
+    arena.cornerCones.forEach(cone => {
+      expect(cone.isMesh).toBe(true);
+    });
+  });
+
+  it('should position corner cones near the arena corners', () => {
+    const size = 50;
+    const arena = createArena(size);
+    const half = size / 2;
+    arena.cornerCones.forEach(cone => {
+      expect(Math.abs(cone.position.x)).toBeLessThan(half);
+      expect(Math.abs(cone.position.z)).toBeLessThan(half);
+      expect(Math.abs(cone.position.x)).toBeGreaterThan(half / 2);
+      expect(Math.abs(cone.position.z)).toBeGreaterThan(half / 2);
+    });
+  });
+
+  it('should place corner cones flat on the floor', () => {
+    const arena = createArena(50);
+    arena.cornerCones.forEach(cone => {
+      expect(cone.position.y).toBeGreaterThan(0);
+      expect(cone.position.y).toBeLessThan(0.1);
+    });
+  });
+
+  it('should use ConeGeometry for corner cones', () => {
+    const arena = createArena(50);
+    arena.cornerCones.forEach(cone => {
+      expect(cone.geometry.type).toBe('ConeGeometry');
+    });
+  });
+
+  it('should add all corner cones to the arena group', () => {
+    const arena = createArena(50);
+    arena.cornerCones.forEach(cone => {
+      expect(arena.group.children).toContain(cone);
+    });
+  });
+
+  it('should have one cone in each quadrant', () => {
+    const arena = createArena(50);
+    const quadrants = arena.cornerCones.map(cone => ({
+      x: Math.sign(cone.position.x),
+      z: Math.sign(cone.position.z),
+    }));
+    expect(quadrants).toContainEqual({ x: -1, z: -1 });
+    expect(quadrants).toContainEqual({ x:  1, z: -1 });
+    expect(quadrants).toContainEqual({ x: -1, z:  1 });
+    expect(quadrants).toContainEqual({ x:  1, z:  1 });
+  });
+});

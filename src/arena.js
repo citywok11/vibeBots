@@ -17,6 +17,11 @@ const FIGURE_COLORS = [
   0xff55cc, 0x00ccff, 0xffffff, 0xff8800,
 ];
 
+const CORNER_CONE_HEIGHT = 0.05;
+const CORNER_CONE_COLOR = 0xffaa00;
+const CORNER_CONE_INSET = 0.5;
+const CORNER_CONE_LEG = 20;
+
 function createStandsAndAudience(size, wallThickness) {
   const half = size / 2;
   const standWidth = size + STAND_WIDTH_EXTRA;
@@ -132,9 +137,42 @@ export function createArena(size, { pitCutout } = {}) {
     return wall;
   });
 
+  // Corner cone floor markings — flat triangular shapes at each arena corner
+  // pointing inward to demarcate the combat zone. Each triangle has its right-
+  // angle vertex in the corner and two legs running along the walls.
+  const coneMaterial = new THREE.MeshStandardMaterial({ color: CORNER_CONE_COLOR });
+  const cornerConfigs = [
+    { cx: -1, cz: -1 },  // NW corner
+    { cx:  1, cz: -1 },  // NE corner
+    { cx: -1, cz:  1 },  // SW corner
+    { cx:  1, cz:  1 },  // SE corner
+  ];
+  const cornerCones = cornerConfigs.map(({ cx, cz }) => {
+    const shape = new THREE.Shape();
+    // Right-angle vertex sits in the corner (inset slightly from the wall)
+    const cornerX = cx * (half - CORNER_CONE_INSET);
+    const cornerZ = cz * (half - CORNER_CONE_INSET);
+    // The two other vertices run along each wall edge toward the centre
+    const legX = cornerX - cx * CORNER_CONE_LEG;
+    const legZ = cornerZ - cz * CORNER_CONE_LEG;
+
+    // Shape is drawn in XZ via ShapeGeometry (which produces XY), then rotated
+    shape.moveTo(cornerX, cornerZ);
+    shape.lineTo(legX, cornerZ);
+    shape.lineTo(cornerX, legZ);
+    shape.lineTo(cornerX, cornerZ);
+
+    const geo = new THREE.ShapeGeometry(shape);
+    const mesh = new THREE.Mesh(geo, coneMaterial);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.y = CORNER_CONE_HEIGHT;
+    group.add(mesh);
+    return mesh;
+  });
+
   // Audience stands
   const { stands, audienceFigures } = createStandsAndAudience(size, wallThickness);
   stands.forEach(stand => group.add(stand));
 
-  return { floor, walls, stands, audienceFigures, group, size };
+  return { floor, walls, cornerCones, stands, audienceFigures, group, size };
 }
