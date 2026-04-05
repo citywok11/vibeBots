@@ -6,6 +6,7 @@ const ROBOT_HALF_DEPTH = ROBOT_BODY_DEPTH / 2;
 
 const FLIPPER_STRENGTH = 15;
 const LATERAL_FACTOR = 0.5;
+const FORWARD_FACTOR = 0.8;
 
 /**
  * Checks whether the robot's body overlaps the flipper zone in the car's local frame.
@@ -76,12 +77,18 @@ export function applyFlipperImpulse(car, robot) {
   // Vertical component — sends the robot into the air
   robot.velocityY += force;
 
+  // Forward component — pushes the robot in the car's facing direction
+  const forwardForce = force * FORWARD_FACTOR;
+  const carAngle = car.rotation;
+  robot.velocity.x += forwardForce * Math.sin(carAngle);
+  robot.velocity.z += -forwardForce * Math.cos(carAngle);
+
   // Lateral component — pushes the robot sideways based on contact offset
   const lateralLocalX = contact.xOffset * force * LATERAL_FACTOR;
 
   // Rotate local X force back into world XZ
-  robot.velocity.x += lateralLocalX * Math.cos(car.rotation);
-  robot.velocity.z += -lateralLocalX * Math.sin(car.rotation);
+  robot.velocity.x += lateralLocalX * Math.cos(carAngle);
+  robot.velocity.z += -lateralLocalX * Math.sin(carAngle);
 
   return true;
 }

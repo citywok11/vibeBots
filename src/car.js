@@ -307,6 +307,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
 
   let rotation = 0;
   const velocity = { x: 0, z: 0 };
+  let velocityY = 0;
   let currentMass = options.mass ?? MODEL_CATALOGUE[0].mass;
   const collisionRadius = Math.sqrt((width / 2) ** 2 + (depth / 2) ** 2);
   let hasWheels = true;
@@ -408,6 +409,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     group.rotation.z = 0;
     velocity.x = 0;
     velocity.z = 0;
+    velocityY = 0;
     angularVelocity = 0;
     pitchTilt = 0;
     rollTilt = 0;
@@ -513,6 +515,15 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     group.position.z += velocity.z * dt;
     velocity.x *= currentFriction;
     velocity.z *= currentFriction;
+
+    // Vertical physics (gravity + ground clamp)
+    const GRAVITY = 30;
+    velocityY -= GRAVITY * dt;
+    group.position.y += velocityY * dt;
+    if (group.position.y <= groupY) {
+      group.position.y = groupY;
+      velocityY = 0;
+    }
 
     // Apply angular velocity (yaw spin from collisions)
     const ANGULAR_FRICTION = 0.95;
@@ -670,6 +681,8 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     get machineGunActive() { return machineGunActive; },
     get rotation() { return rotation; },
     get velocity() { return velocity; },
+    get velocityY() { return velocityY; },
+    set velocityY(v) { velocityY = v; },
     get mass() { return currentMass; },
     get flipperPower() { return currentFlipperPower; },
     get flipperDepth() { return currentFlipperDepth; },

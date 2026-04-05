@@ -165,9 +165,10 @@ function gameLoop(time) {
   // Update fire hazards
   fireHazards.update(dt);
 
-  // Update arena flippers and check for robot launches
+  // Update arena flippers and check for launches
   arenaFlippers.update(dt);
   for (const af of arenaFlippers.flippers) {
+    af.applyLaunch(car);
     af.applyLaunch(robot);
   }
 
@@ -191,7 +192,15 @@ function gameLoop(time) {
   robot.update(dt);
   robot.bounceOffWalls(ARENA_SIZE);
 
+  // Apply flipper impulse once per flip activation when robot is in range
+  if (car.flipperActive && !flipImpulseApplied) {
+    if (applyFlipperImpulse(car, robot)) {
+      flipImpulseApplied = true;
+    }
+  }
+
   // Pit Y + lean: per-wheel support heights; pitch/roll when straddling the pit edge
+  // Skip entities that are airborne (launched by flipper) — let their own gravity handle Y.
   [
     {
       entity: car,
@@ -210,6 +219,11 @@ function gameLoop(time) {
       wheelHyst: robotPitWheelHyst,
     },
   ].forEach(({ entity, trapped, setTrapped, width, depth, wheelHyst }) => {
+    // If entity has upward velocity (launched by flipper/arena flipper), let its own physics handle Y
+    if (!trapped && entity.velocityY !== undefined && entity.velocityY > 0) {
+      entity.applyFrameRotation(0, 0);
+      return;
+    }
     const cx = entity.group.position.x;
     const cz = entity.group.position.z;
     const yaw = entity.group.rotation.y;
@@ -338,13 +352,6 @@ function gameLoop(time) {
   // Pit wall collision: trapped entities stay inside
   if (carTrapped) pit.constrainEntity(car, true);
   if (robotTrapped) pit.constrainEntity(robot, true);
-
-  // Apply flipper impulse once per flip activation when robot is in range
-  if (car.flipperActive && !flipImpulseApplied) {
-    if (applyFlipperImpulse(car, robot)) {
-      flipImpulseApplied = true;
-    }
-  }
 
   // Resolve collision between player car and dummy robot
   {

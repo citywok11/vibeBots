@@ -134,8 +134,9 @@ describe('applyFlipperImpulse', () => {
     car.activateFlipper();
     car.update(0.05);
     applyFlipperImpulse(car, robot);
+    // Centered robot gets no lateral (X) push but does get forward (Z) push
     expect(robot.velocity.x).toBeCloseTo(0, 5);
-    expect(robot.velocity.z).toBeCloseTo(0, 5);
+    expect(robot.velocity.z).toBeLessThan(0); // pushed in car's facing direction (-Z)
   });
 
   it('applies positive world-X lateral velocity when robot is right of center (rotation=0)', () => {
