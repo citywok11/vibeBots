@@ -4,6 +4,7 @@ import {
   createArenaFlippers,
   FLIPPER_WIDTH,
   FLIPPER_DEPTH,
+  BASE_HEIGHT,
   STATE_IDLE,
   STATE_FIRING,
   STATE_RESETTING,
@@ -278,14 +279,16 @@ describe('createArenaFlipper — applyLaunch', () => {
     expect(r2.velocityY).toBeGreaterThan(r1.velocityY);
   });
 
-  it('only launches a robot once per swing', () => {
+  it('applies reduced carry impulse on subsequent frames during same swing', () => {
     flipper.fire();
     flipper.update(0.05);
     flipper.applyLaunch(robot);
     const vyAfterFirst = robot.velocityY;
     flipper.update(0.02);
     flipper.applyLaunch(robot);
-    expect(robot.velocityY).toBe(vyAfterFirst); // no additional impulse
+    // Second hit adds a carry impulse (reduced by carryFractionPerFrame),
+    // so total velocity should be greater than after the first hit alone.
+    expect(robot.velocityY).toBeGreaterThan(vyAfterFirst);
   });
 
   it('can launch the same robot again on a new swing', () => {
@@ -698,5 +701,186 @@ describe('createArenaFlippers', () => {
     for (const f of af.flippers) {
       expect(f.getState()).toBe(STATE_FIRING);
     }
+  });
+});
+
+// ── 3D contact detection (paddle surface height) ──────────────────
+describe('createArenaFlipper — 3D contact detection', () => {
+  it('contact tracks paddle surface height as angle increases', () => {
+    const f = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 10, activeAngle: 1.0, surfaceTolerance: 0.5,
+    });
+    const robot = createRobot({ x: 0, z: 0 });
+    // Robot on the ground, paddle at rest — should be on paddle
+    robot.group.position.set(0, robot.groundY, 0);
+    expect(f.checkContact(robot).onPaddle).toBe(true);
+
+    // Fire and advance significantly — paddle tip rises well above ground
+    f.fire();
+    tick(f, 0.08); // angle ≈ 0.8
+
+    // Robot is still on the ground — paddle has swept through it, still counts
+    // (negative gap = paddle surface above robot bottom)
+    expect(f.checkContact(robot).onPaddle).toBe(true);
+  });
+
+  it('rejects robot that is high above the raised paddle surface', () => {
+    const f = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 10, activeAngle: 1.0, surfaceTolerance: 0.5,
+    });
+    const robot = createRobot({ x: 0, z: 0 });
+    // Put robot well above paddle — beyond surfaceTolerance above surface
+    robot.group.position.set(0, robot.groundY + 5, 0);
+    f.fire();
+    f.update(0.03);
+    expect(f.checkContact(robot).onPaddle).toBe(false);
+  });
+
+  it('paddle surface height varies with local Z position (tip vs hinge)', () => {
+    const f = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 100, activeAngle: 0.5, surfaceTolerance: 0.3,
+    });
+    f.fire();
+    tick(f, 0.01); // reach peak quickly
+
+    // Robot at paddle tip (local Z ≈ -FLIPPER_DEPTH/2) — surface is highest there
+    const rTip = createRobot({ x: 0, z: 0 });
+    rTip.group.position.set(0, rTip.groundY, -(FLIPPER_DEPTH / 2) + 0.1);
+
+    // Robot at hinge (local Z ≈ +FLIPPER_DEPTH/2) — surface is near BASE_HEIGHT
+    const rHinge = createRobot({ x: 0, z: 0 });
+    rHinge.group.position.set(0, rHinge.groundY, (FLIPPER_DEPTH / 2) - 0.1);
+
+    // At angle 0.5, the tip surface Y is significantly higher than the hinge.
+    // Both should still be on paddle (paddle swept through from below).
+    expect(f.checkContact(rTip).onPaddle).toBe(true);
+    expect(f.checkContact(rHinge).onPaddle).toBe(true);
+  });
+
+  it('uses robot bottom (pos.y - groundY) not robot centre for height check', () => {
+    const f = createArenaFlipper(0, 0, 0, { surfaceTolerance: 0.3 });
+    const robot = createRobot({ x: 0, z: 0 });
+    // At groundY, bottom = 0; paddle surface at rest ≈ BASE_HEIGHT = 0.3
+    // gap = 0 - 0.3 = -0.3 → within tolerance (paddle above robot bottom)
+    robot.group.position.set(0, robot.groundY, 0);
+    expect(f.checkContact(robot).onPaddle).toBe(true);
+
+    // Lift robot so its bottom is well above the paddle surface + tolerance
+    robot.group.position.set(0, robot.groundY + BASE_HEIGHT + 1.0, 0);
+    expect(f.checkContact(robot).onPaddle).toBe(false);
+  });
+});
+
+// ── Divide-by-zero guard ──────────────────────────────────────────
+describe('createArenaFlipper — config safety', () => {
+  it('does not crash when activeAngle equals restAngle', () => {
+    const f = createArenaFlipper(0, 0, 0, {
+      activeAngle: 0, restAngle: 0,
+    });
+    expect(f.getState()).toBe(STATE_IDLE);
+    f.fire();
+    f.update(0.05);
+    // Should not throw or produce NaN
+    expect(Number.isFinite(f.getAngle())).toBe(true);
+  });
+
+  it('does not crash when activeAngle is less than restAngle', () => {
+    const f = createArenaFlipper(0, 0, 0, {
+      activeAngle: 0, restAngle: 0.5,
+    });
+    f.fire();
+    f.update(0.05);
+    expect(Number.isFinite(f.getAngle())).toBe(true);
+  });
+
+  it('clamps activeAngle above restAngle so progress never divides by zero', () => {
+    const f = createArenaFlipper(0, 0, 0, {
+      activeAngle: 1.0, restAngle: 1.0,
+    });
+    const cfg = f.getConfig();
+    expect(cfg.activeAngle).toBeGreaterThan(cfg.restAngle);
+  });
+});
+
+// ── Carry impulse (multi-frame launch) ────────────────────────────
+describe('createArenaFlipper — carry impulse', () => {
+  it('carry frame impulse is less than initial impulse for the same progress', () => {
+    // Use two separate flippers with the same settings to compare
+    const tuning = {
+      swingSpeed: 10, activeAngle: 1.0, launchUp: 12,
+      carryFractionPerFrame: 0.35, swingEase: 0,
+      contactDepthScale: 0, launchWindowEnd: 1.0, directionBlend: 0,
+      launchAssistMax: 0,
+    };
+
+    // First impulse robot
+    const f1 = createArenaFlipper(0, 0, 0, tuning);
+    const r1 = createRobot({ x: 0, z: 0 });
+    r1.group.position.set(0, r1.groundY, 0);
+    f1.fire();
+    f1.update(0.05); // progress = 0.5
+    f1.applyLaunch(r1);
+    const firstVy = r1.velocityY;
+
+    // Carry impulse robot — hit once to mark as launched, reset velocity, hit again
+    const f2 = createArenaFlipper(0, 0, 0, tuning);
+    const r2 = createRobot({ x: 0, z: 0 });
+    r2.group.position.set(0, r2.groundY, 0);
+    f2.fire();
+    f2.update(0.04);
+    f2.applyLaunch(r2);      // first hit — marks robot
+    const vyAfterFirst = r2.velocityY;
+    r2.velocityY = 0;        // reset to isolate carry impulse
+    f2.update(0.01);          // advance to progress ≈ 0.5
+    f2.applyLaunch(r2);      // carry hit
+    const carryVy = r2.velocityY;
+
+    // Carry impulse should be a fraction of what a fresh first-hit would give
+    expect(carryVy).toBeGreaterThan(0);
+    expect(carryVy).toBeLessThan(firstVy);
+  });
+
+  it('carryFractionPerFrame of 0 gives no impulse on carry frames', () => {
+    const f = createArenaFlipper(0, 0, 0, {
+      swingSpeed: 10, activeAngle: 1.0, launchUp: 12,
+      carryFractionPerFrame: 0, swingEase: 0,
+    });
+    const robot = createRobot({ x: 0, z: 0 });
+    robot.group.position.set(0, robot.groundY, 0);
+    f.fire();
+    f.update(0.05);
+    f.applyLaunch(robot);
+    const vyAfterFirst = robot.velocityY;
+    f.update(0.02);
+    f.applyLaunch(robot);
+    // With carryFraction=0, no additional impulse on carry frames
+    expect(robot.velocityY).toBe(vyAfterFirst);
+  });
+
+  it('carryFractionPerFrame of 1 gives full impulse on carry frames', () => {
+    const tuning = {
+      swingSpeed: 10, activeAngle: 1.0, launchUp: 12,
+      carryFractionPerFrame: 1.0, swingEase: 0,
+      contactDepthScale: 0, launchWindowEnd: 1.0, directionBlend: 0,
+      launchAssistMax: 0,
+    };
+    const f = createArenaFlipper(0, 0, 0, tuning);
+    const robot = createRobot({ x: 0, z: 0 });
+    robot.group.position.set(0, robot.groundY, 0);
+    f.fire();
+    f.update(0.05);
+    f.applyLaunch(robot);
+    const vyFirst = robot.velocityY;
+    robot.velocityY = 0;
+    // Don't advance flipper — same progress, carry fraction = 1.0 → same impulse
+    f.applyLaunch(robot);
+    expect(robot.velocityY).toBeCloseTo(vyFirst, 3);
+  });
+
+  it('new tuning values surfaceTolerance and carryFractionPerFrame are in getConfig', () => {
+    const f = createArenaFlipper(0, 0, 0, { surfaceTolerance: 0.8, carryFractionPerFrame: 0.5 });
+    const cfg = f.getConfig();
+    expect(cfg.surfaceTolerance).toBe(0.8);
+    expect(cfg.carryFractionPerFrame).toBe(0.5);
   });
 });
