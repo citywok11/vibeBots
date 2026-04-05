@@ -163,4 +163,81 @@ describe('Robot', () => {
     expect(robot.velocity.x).toBe(0);
     expect(robot.velocity.z).toBe(0);
   });
+
+  describe('applyCollisionFriction', () => {
+    it('should expose an applyCollisionFriction method', () => {
+      const robot = createRobot();
+      expect(typeof robot.applyCollisionFriction).toBe('function');
+    });
+
+    it('should not reduce velocity when collision is parallel to the rolling direction (front/rear hit)', () => {
+      const robot = createRobot();
+      // Default rotation.y = 0 → forward is (0, -1) in XZ
+      // Collision normal (0, -1) is exactly along the forward axis → no lateral friction
+      robot.velocity.x = 0;
+      robot.velocity.z = 5;
+      robot.applyCollisionFriction(0, -1);
+      expect(robot.velocity.x).toBeCloseTo(0, 5);
+      expect(robot.velocity.z).toBeCloseTo(5, 5);
+    });
+
+    it('should significantly reduce velocity when collision is perpendicular to the wheels (side hit)', () => {
+      const robot = createRobot();
+      // Collision normal (1, 0) is perpendicular to forward (0, -1) → maximum lateral friction
+      robot.velocity.x = 5;
+      robot.velocity.z = 0;
+      robot.applyCollisionFriction(1, 0);
+      expect(Math.abs(robot.velocity.x)).toBeLessThan(5);
+      // Should be reduced by ~80 %
+      expect(Math.abs(robot.velocity.x)).toBeCloseTo(5 * (1 - 0.8), 5);
+    });
+
+    it('should apply partial friction at 45 degrees (between parallel and perpendicular)', () => {
+      // Perpendicular hit: max friction
+      const robotPerp = createRobot();
+      robotPerp.velocity.x = 5;
+      robotPerp.velocity.z = 0;
+      robotPerp.applyCollisionFriction(1, 0);
+      const speedPerp = Math.sqrt(robotPerp.velocity.x ** 2 + robotPerp.velocity.z ** 2);
+
+      // 45-degree hit: partial friction
+      const robot45 = createRobot();
+      robot45.velocity.x = 5;
+      robot45.velocity.z = 0;
+      const diag = 1 / Math.sqrt(2);
+      robot45.applyCollisionFriction(diag, -diag);
+      const speed45 = Math.sqrt(robot45.velocity.x ** 2 + robot45.velocity.z ** 2);
+
+      // Parallel hit: no friction
+      const robotPar = createRobot();
+      robotPar.velocity.x = 5;
+      robotPar.velocity.z = 0;
+      robotPar.applyCollisionFriction(0, -1);
+      const speedPar = Math.sqrt(robotPar.velocity.x ** 2 + robotPar.velocity.z ** 2);
+
+      expect(speed45).toBeGreaterThan(speedPerp);
+      expect(speed45).toBeLessThan(speedPar);
+    });
+
+    it('should respect the robot rotation when computing the forward axis', () => {
+      const robot = createRobot();
+      // Rotate robot 90° so its forward becomes (1, 0) in XZ
+      robot.group.rotation.y = Math.PI / 2;
+
+      // Collision along new forward (1, 0) → no friction
+      robot.velocity.x = 5;
+      robot.velocity.z = 0;
+      robot.applyCollisionFriction(1, 0);
+      expect(robot.velocity.x).toBeCloseTo(5, 5);
+      expect(robot.velocity.z).toBeCloseTo(0, 5);
+    });
+  it('should retain horizontal velocity across updates (no friction)', () => {
+    const robot = createRobot({ x: 0, z: 0 });
+    robot.velocity.x = 5;
+    robot.velocity.z = 3;
+    robot.update(0.1);
+    // Horizontal velocity should not decay (robot has no friction)
+    expect(robot.velocity.x).toBe(5);
+    expect(robot.velocity.z).toBe(3);
+  });
 });

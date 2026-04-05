@@ -473,6 +473,15 @@ describe('Car sub-component collision detection (wheels and flipper)', () => {
       // Old (buggy) code used symmetric depth 2.7 → limit = 22.3 → 22.5 > 22.3 → false bounce.
       const arenaSize = 50;
       const car = createCar({ x: 0, z: 22.5 });
+  describe('Flipper deselected collision', () => {
+    // When flipper is deselected, effectiveHalfDepth = depth/2 = 1.5 only (no flipper contribution)
+    // With arenaSize=50 (half=25): limitZ = 25 - 1.5 = 23.5
+
+    it('should not include flipper depth when flipper is deselected', () => {
+      // At z=-23: with flipper → bounces (limitZ=22.3); without flipper → no bounce (limitZ=23.5)
+      const arenaSize = 50;
+      const car = createCar({ x: 0, z: -23 });
+      car.applyCustomisation({ flipper: null });
       const result = car.bounceOffWalls(arenaSize);
       expect(result.bounced).toBe(false);
     });
@@ -481,6 +490,11 @@ describe('Car sub-component collision detection (wheels and flipper)', () => {
       // Car at z=23.6, rotation=0. Back at 23.6 + 1.5 = 25.1 — past south wall.
       const arenaSize = 50;
       const car = createCar({ x: 0, z: 23.6 });
+    it('should bounce using body-only depth when flipper is deselected', () => {
+      // At z=-23.8: body limitZ = 25 - 1.5 = 23.5 → should bounce even without flipper
+      const arenaSize = 50;
+      const car = createCar({ x: 0, z: -23.8 });
+      car.applyCustomisation({ flipper: null });
       const result = car.bounceOffWalls(arenaSize);
       expect(result.bounced).toBe(true);
     });
@@ -515,6 +529,15 @@ describe('Car sub-component collision detection (wheels and flipper)', () => {
       car.bounceOffWalls(arenaSize);
       // Back of car (at car.z - backHalfDepth when rotation=π) sits at north wall
       expect(car.group.position.z - backHalfDepth).toBeCloseTo(-half, 5);
+    it('should restore flipper collision depth when flipper is re-selected', () => {
+      // At z=-23: no bounce when flipper absent, but should bounce once flipper is re-selected
+      const arenaSize = 50;
+      const car = createCar({ x: 0, z: -23 });
+      car.applyCustomisation({ flipper: null });
+      expect(car.bounceOffWalls(arenaSize).bounced).toBe(false);
+      car.group.position.z = -23; // reset position
+      car.applyCustomisation({ flipper: 'standard' });
+      expect(car.bounceOffWalls(arenaSize).bounced).toBe(true);
     });
   });
 
@@ -846,5 +869,71 @@ describe('Car applyCustomisation()', () => {
     car.applyCustomisation({ wheels: 'standard' });
     car.accelerate(10);
     expect(Math.abs(car.velocity.x) + Math.abs(car.velocity.z)).toBeGreaterThan(0);
+  });
+
+  it('should prevent activateFlipper when flipper is deselected', () => {
+    const car = createCar();
+    car.applyCustomisation({ flipper: null });
+    car.activateFlipper();
+    car.update(0.5);
+    expect(car.flipperAngle).toBe(0);
+  });
+
+  it('should allow activateFlipper again when flipper is re-selected after being deselected', () => {
+    const car = createCar();
+    car.applyCustomisation({ flipper: null });
+    car.activateFlipper();
+    car.update(0.5);
+    expect(car.flipperAngle).toBe(0);
+    car.applyCustomisation({ flipper: 'standard' });
+    car.activateFlipper();
+    car.update(0.5);
+    expect(car.flipperAngle).toBeGreaterThan(0);
+  });
+
+  it('should hide the flamethrower barrel when flamethrower selection is null', () => {
+    const car = createCar();
+    car.applyCustomisation({ flamethrower: null });
+    expect(car.flamethrower.visible).toBe(false);
+  });
+
+  it('should show the flamethrower barrel when flamethrower selection is standard', () => {
+    const car = createCar();
+    car.flamethrower.visible = false;
+    car.applyCustomisation({ flamethrower: 'standard' });
+    expect(car.flamethrower.visible).toBe(true);
+  });
+
+  it('should prevent activateFlamethrower when flamethrower is deselected', () => {
+    const car = createCar();
+    car.applyCustomisation({ flamethrower: null });
+    car.activateFlamethrower();
+    car.update(0.016);
+    expect(car.flamethrowerActive).toBe(false);
+    expect(car.flame.visible).toBe(false);
+  });
+
+  it('should allow activateFlamethrower again when flamethrower is re-selected after being deselected', () => {
+    const car = createCar();
+    car.applyCustomisation({ flamethrower: null });
+    car.activateFlamethrower();
+    car.update(0.016);
+    expect(car.flamethrowerActive).toBe(false);
+    car.applyCustomisation({ flamethrower: 'standard' });
+    car.activateFlamethrower();
+    car.update(0.016);
+    expect(car.flamethrowerActive).toBe(true);
+    expect(car.flame.visible).toBe(true);
+  });
+
+  it('should hide flame and particles immediately when flamethrower is deselected while active', () => {
+    const car = createCar();
+    car.activateFlamethrower();
+    car.update(0.1);
+    car.applyCustomisation({ flamethrower: null });
+    expect(car.flame.visible).toBe(false);
+    car.particles.forEach(p => {
+      expect(p.mesh.visible).toBe(false);
+    });
   });
 });
