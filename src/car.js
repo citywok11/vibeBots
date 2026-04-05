@@ -452,24 +452,31 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     });
   }
 
+  function isAirborne() {
+    return group.position.y > groupY + 0.01;
+  }
+
   function accelerate(amount) {
     if (!hasWheels) return;
-    velocity.x += -Math.sin(rotation) * amount * currentVelocityMult;
+    if (isAirborne()) return;
+    velocity.x += -Math.sin(rotation) * amount * currentVelocityMult; 
     velocity.z += -Math.cos(rotation) * amount * currentVelocityMult;
   }
 
   function turnLeft(amount) {
     if (!hasWheels) return;
+    steerAngle = MAX_STEER_ANGLE;
+    if (isAirborne()) return;
     rotation += amount;
     group.rotation.y = rotation;
-    steerAngle = MAX_STEER_ANGLE;
   }
 
   function turnRight(amount) {
     if (!hasWheels) return;
+    steerAngle = -MAX_STEER_ANGLE;
+    if (isAirborne()) return;
     rotation -= amount;
     group.rotation.y = rotation;
-    steerAngle = -MAX_STEER_ANGLE;
   }
 
   function bounceOffWalls(arenaSize) {

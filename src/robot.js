@@ -233,14 +233,20 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
     angularVelocity += impulse;
   }
 
+  function isAirborne() {
+    return group.position.y > groupY + 0.01;
+  }
+
   /**
    * Simple chase AI: turns to face targetPos and accelerates toward it.
    * Call once per frame before update(dt).
+   * Does nothing while the robot is airborne — wheels have no traction.
    *
    * @param {number} dt - Delta time in seconds
    * @param {{ x: number, z: number }} targetPos - World-space position to chase
    */
   function updateAI(dt, targetPos) {
+    if (isAirborne()) return;
     const dx = targetPos.x - group.position.x;
     const dz = targetPos.z - group.position.z;
     const dist = Math.sqrt(dx * dx + dz * dz);
