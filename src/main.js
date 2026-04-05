@@ -21,6 +21,7 @@ import { applyFlipperImpulse } from './flipper-physics.js';
 import { createPit, DEFAULT_PIT_SIZE, PIT_DEPTH } from './pit.js';
 import { createPitButton } from './pit-button.js';
 import { createPitAlarm } from './pit-alarm.js';
+import { createFireHazards } from './fire-hazard.js';
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -60,6 +61,10 @@ scene.add(pitButton.group);
 
 // Pit alarm
 const pitAlarm = createPitAlarm();
+
+// Fire hazards — flat grates on the floor that periodically emit fire
+const fireHazards = createFireHazards(ARENA_SIZE);
+fireHazards.hazards.forEach(h => scene.add(h.group));
 
 // Wire button → pit + alarm
 pitButton.onActivate(() => {
@@ -132,6 +137,9 @@ function gameLoop(time) {
   if (!pit.isLowering() && pitAlarm.isPlaying()) {
     pitAlarm.stop();
   }
+
+  // Update fire hazards
+  fireHazards.update(dt);
 
   if (input.isPressed('forward')) car.accelerate(ACCEL * dt);
   if (input.isPressed('backward')) car.accelerate(-ACCEL * dt);
@@ -293,6 +301,7 @@ function startLoop() {
   pitTipFall.robot.fallAccum = 0;
   carPitWheelHyst.reset();
   robotPitWheelHyst.reset();
+  fireHazards.reset();
   renderer.domElement.style.display = 'block';
   lastTime = performance.now();
   if (!rafId) rafId = requestAnimationFrame(gameLoop);
