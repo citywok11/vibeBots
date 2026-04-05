@@ -95,10 +95,17 @@ function gameLoop(time) {
   robot.bounceOffWalls(ARENA_SIZE);
 
   // Resolve collision between player car and dummy robot
-  resolveCollision(
+  const collided = resolveCollision(
     { position: car.group.position, velocity: car.velocity, mass: car.mass, collisionRadius: car.collisionRadius },
     { position: robot.group.position, velocity: robot.velocity, mass: robot.mass, collisionRadius: robot.collisionRadius }
   );
+
+  if (collided) {
+    const dx = robot.group.position.x - car.group.position.x;
+    const dz = robot.group.position.z - car.group.position.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    robot.applyCollisionFriction(dx / dist, dz / dist);
+  }
 
   // Camera follows car
   const carPos = car.group.position;
