@@ -126,30 +126,47 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
 
   function bounceOffWalls(arenaSize) {
     const half = arenaSize / 2;
-    const halfExtentX = width / 2;
-    const halfExtentZ = depth / 2;
-
-    const limitX = half - halfExtentX;
-    const limitZ = half - halfExtentZ;
-
     let bounced = false;
 
-    if (group.position.x <= -limitX) {
-      group.position.x = -limitX;
+    const rotation = group.rotation.y;
+    const cosR = Math.cos(rotation);
+    const sinR = Math.sin(rotation);
+
+    // Compute the axis-aligned bounding box from the four corners of the
+    // robot's oriented rectangle so corners can't clip through walls.
+    const halfW = width / 2;
+    const halfD = depth / 2;
+
+    let maxX = -Infinity, minX = Infinity;
+    let maxZ = -Infinity, minZ = Infinity;
+
+    for (const lz of [-halfD, halfD]) {
+      for (const lx of [-halfW, halfW]) {
+        const wx = cosR * lx + sinR * lz;
+        const wz = -sinR * lx + cosR * lz;
+        if (wx > maxX) maxX = wx;
+        if (wx < minX) minX = wx;
+        if (wz > maxZ) maxZ = wz;
+        if (wz < minZ) minZ = wz;
+      }
+    }
+
+    if (group.position.x + minX <= -half) {
+      group.position.x = -half - minX;
       velocity.x = Math.abs(velocity.x) * RESTITUTION;
       bounced = true;
-    } else if (group.position.x >= limitX) {
-      group.position.x = limitX;
+    } else if (group.position.x + maxX >= half) {
+      group.position.x = half - maxX;
       velocity.x = -Math.abs(velocity.x) * RESTITUTION;
       bounced = true;
     }
 
-    if (group.position.z <= -limitZ) {
-      group.position.z = -limitZ;
+    if (group.position.z + minZ <= -half) {
+      group.position.z = -half - minZ;
       velocity.z = Math.abs(velocity.z) * RESTITUTION;
       bounced = true;
-    } else if (group.position.z >= limitZ) {
-      group.position.z = limitZ;
+    } else if (group.position.z + maxZ >= half) {
+      group.position.z = half - maxZ;
       velocity.z = -Math.abs(velocity.z) * RESTITUTION;
       bounced = true;
     }

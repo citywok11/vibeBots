@@ -131,6 +131,104 @@ describe('Robot', () => {
     expect(result.bounced).toBe(false);
   });
 
+  describe('rotation-aware wall collision', () => {
+    // Robot body: width=2, depth=3 → halfW=1, halfD=1.5
+    // At rotation=0 the AABB matches the body extents.
+    // At rotation=π/4 (45°) the AABB expands:
+    //   each corner: lx ∈ {-1,1}, lz ∈ {-1.5,1.5}
+    //   wx = cos(π/4)*lx + sin(π/4)*lz ≈ 0.707*1 + 0.707*1.5 ≈ 1.768
+    //   maxX ≈ 1.768 (bigger than the axis-aligned 1.5)
+    // With arenaSize=50, half=25: axis-aligned limitX = 25 - 1 = 24,
+    // but at 45° the rotated AABB maxX ≈ 1.768, so the limit is ≈ 25 - 1.768 ≈ 23.232
+
+    it('should bounce off the east wall when rotated 45° and a corner extends into it', () => {
+      const arenaSize = 50;
+      // At rotation=0 the body's halfW=1, so limitX=24 → x=23.5 is fine.
+      // At rotation=π/4 the AABB maxX ≈ 1.768, so limitX ≈ 23.232 → x=23.5 exceeds it.
+      const robot = createRobot({ x: 23.5, z: 0 });
+      robot.group.rotation.y = Math.PI / 4;
+      robot.velocity.x = 5;
+      const result = robot.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(true);
+      expect(robot.velocity.x).toBeLessThan(0);
+    });
+
+    it('should bounce off the west wall when rotated 45° and a corner extends into it', () => {
+      const arenaSize = 50;
+      const robot = createRobot({ x: -23.5, z: 0 });
+      robot.group.rotation.y = Math.PI / 4;
+      robot.velocity.x = -5;
+      const result = robot.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(true);
+      expect(robot.velocity.x).toBeGreaterThan(0);
+    });
+
+    it('should bounce off the north wall when rotated 45° and a corner extends into it', () => {
+      const arenaSize = 50;
+      const robot = createRobot({ x: 0, z: -23.5 });
+      robot.group.rotation.y = Math.PI / 4;
+      robot.velocity.z = -5;
+      const result = robot.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(true);
+      expect(robot.velocity.z).toBeGreaterThan(0);
+    });
+
+    it('should bounce off the south wall when rotated 45° and a corner extends into it', () => {
+      const arenaSize = 50;
+      const robot = createRobot({ x: 0, z: 23.5 });
+      robot.group.rotation.y = Math.PI / 4;
+      robot.velocity.z = 5;
+      const result = robot.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(true);
+      expect(robot.velocity.z).toBeLessThan(0);
+    });
+
+    it('should not bounce when rotated 45° and the AABB is safely inside', () => {
+      const arenaSize = 50;
+      // At 45° the AABB maxX ≈ 1.768, so limitX ≈ 23.232 → x=22 is well inside
+      const robot = createRobot({ x: 22, z: 0 });
+      robot.group.rotation.y = Math.PI / 4;
+      robot.velocity.x = 5;
+      const result = robot.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(false);
+    });
+
+    it('should clamp position so no corner extends beyond the wall when rotated', () => {
+      const arenaSize = 50;
+      const half = arenaSize / 2;
+      const robot = createRobot({ x: 40, z: 0 }); // well past the east wall
+      robot.group.rotation.y = Math.PI / 4;
+      robot.bounceOffWalls(arenaSize);
+
+      // After clamping, the rotated AABB maxX extent must sit inside the arena
+      const cosR = Math.cos(Math.PI / 4);
+      const sinR = Math.sin(Math.PI / 4);
+      const halfW = 1; // width / 2
+      const halfD = 1.5; // depth / 2
+      let maxX = -Infinity;
+      for (const lz of [-halfD, halfD]) {
+        for (const lx of [-halfW, halfW]) {
+          const wx = cosR * lx + sinR * lz;
+          if (wx > maxX) maxX = wx;
+        }
+      }
+      expect(robot.group.position.x + maxX).toBeLessThanOrEqual(half + 0.001);
+    });
+
+    it('should handle 90° rotation correctly (width and depth swap in AABB)', () => {
+      const arenaSize = 50;
+      // At rotation=π/2 the body depth (3) aligns with the X axis and width (2) with Z.
+      // AABB halfX = depth/2 = 1.5, limitX = 25 - 1.5 = 23.5
+      // At x=24: old axis-aligned code used halfW=1 → limitX=24 → barely no bounce.
+      // Rotation-aware code: halfX=1.5 → limitX=23.5 → 24 > 23.5 → bounce.
+      const robot = createRobot({ x: 24, z: 0 });
+      robot.group.rotation.y = Math.PI / 2;
+      robot.velocity.x = 5;
+      const result = robot.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(true);
+    });
+  });
+
   it('should have a different body color than the player car', () => {
     const robot = createRobot();
     const color = robot.mesh.material.color.getHex();
