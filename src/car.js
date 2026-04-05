@@ -74,6 +74,17 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   let rotation = 0;
   const velocity = { x: 0, z: 0 };
 
+  function reset() {
+    group.position.set(startPos.x, groupY, startPos.z);
+    rotation = 0;
+    group.rotation.y = 0;
+    velocity.x = 0;
+    velocity.z = 0;
+    flipperAngle = 0;
+    flipperActive = false;
+    flipper.rotation.x = 0;
+  }
+
   function accelerate(amount) {
     velocity.x += -Math.sin(rotation) * amount;
     velocity.z += -Math.cos(rotation) * amount;
@@ -165,5 +176,6 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     turnRight,
     bounceOffWalls,
     update,
+    reset,
   };
 }

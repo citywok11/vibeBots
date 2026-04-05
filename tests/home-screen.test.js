@@ -46,11 +46,11 @@ describe('HomeScreen', () => {
     expect(title.textContent).toBe('VIBE BOTS');
   });
 
-  it('should have a Play button', () => {
+  it('should have a Sandbox Mode button', () => {
     screen.open();
     const buttons = container.querySelectorAll('.home-screen-button');
     const labels = Array.from(buttons).map(b => b.textContent);
-    expect(labels).toContain('Play');
+    expect(labels).toContain('Sandbox Mode');
   });
 
   it('should have an Options button', () => {
@@ -67,12 +67,12 @@ describe('HomeScreen', () => {
     expect(labels).toContain('Exit');
   });
 
-  it('should call onPlay callback when Play is clicked', () => {
+  it('should call onPlay callback when Sandbox Mode is clicked', () => {
     let called = false;
     screen.onPlay(() => { called = true; });
     screen.open();
     const buttons = container.querySelectorAll('.home-screen-button');
-    const playBtn = Array.from(buttons).find(b => b.textContent === 'Play');
+    const playBtn = Array.from(buttons).find(b => b.textContent === 'Sandbox Mode');
     playBtn.click();
     expect(called).toBe(true);
   });
