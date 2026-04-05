@@ -80,6 +80,23 @@ describe('Car', () => {
     car.accelerate(5);
     expect(car.velocity.z).toBeCloseTo(-10, 0);
   });
+
+  it('should expose a mass property', () => {
+    const car = createCar();
+    expect(typeof car.mass).toBe('number');
+    expect(car.mass).toBeGreaterThan(0);
+  });
+
+  it('should use a custom mass when provided', () => {
+    const car = createCar({}, { mass: 2 });
+    expect(car.mass).toBe(2);
+  });
+
+  it('should expose a collisionRadius property', () => {
+    const car = createCar();
+    expect(typeof car.collisionRadius).toBe('number');
+    expect(car.collisionRadius).toBeGreaterThan(0);
+  });
 });
 
 describe('Car wheels', () => {

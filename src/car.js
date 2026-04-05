@@ -133,6 +133,8 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
 
   let rotation = 0;
   const velocity = { x: 0, z: 0 };
+  const mass = options.mass ?? 1;
+  const collisionRadius = Math.sqrt((width / 2) ** 2 + (depth / 2) ** 2);
 
   function applyCustomisation(selections = {}) {
     if ('model' in selections) {
@@ -279,6 +281,8 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     get flamethrowerActive() { return flamethrowerActive; },
     get rotation() { return rotation; },
     get velocity() { return velocity; },
+    get mass() { return mass; },
+    collisionRadius,
     accelerate,
     activateFlipper,
     activateFlamethrower,
