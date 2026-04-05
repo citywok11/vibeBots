@@ -68,6 +68,23 @@ describe('pit-support', () => {
       expect(g.pitch).toBeCloseTo(0, 5);
     });
 
+    it('scales lean down when only shallowly over the pit (same spread, less inward depth)', () => {
+      const pit = mockPit(-0.8);
+      const deep = [
+        { x: -1, z: 0 }, { x: 4, z: 0 },
+        { x: -1, z: 0.5 }, { x: 4, z: 0.5 },
+      ];
+      const shallow = [
+        { x: 2.97, z: 0 }, { x: 5, z: 0 },
+        { x: 2.97, z: 0.5 }, { x: 5, z: 0.5 },
+      ];
+      const gDeep = computePitGroundingFromWheels(deep, pit, 2, 3, 0.15);
+      const gShallow = computePitGroundingFromWheels(shallow, pit, 2, 3, 0.15);
+      expect(gShallow.tippingSpread).toBeCloseTo(gDeep.tippingSpread, 5);
+      expect(Math.abs(gShallow.roll)).toBeLessThan(Math.abs(gDeep.roll));
+      expect(Math.abs(gShallow.roll)).toBeLessThan(0.04);
+    });
+
     it('tippingSpread damps tiny rim spreads (no false tipping from mm-scale straddle)', () => {
       const pit = mockPit(-0.01);
       const wheels = [

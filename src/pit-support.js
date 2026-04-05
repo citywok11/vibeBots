@@ -1,5 +1,6 @@
-/** Half-width hysteresis (m) so wheels do not flicker arena/pit at the shaft edge when the cover moves. */
-export const PIT_WHEEL_HYSTERESIS_M = 0.07;
+/** Half-width hysteresis (m) so wheels do not flicker arena/pit at the shaft edge when the cover moves.
+ * Larger values delay first contact with the pit surface (car can hang further over the edge before tipping). */
+export const PIT_WHEEL_HYSTERESIS_M = 0.12;
 
 /**
  * Ignore height differences below this when deciding pit-edge tipping (m); damps float noise while lowering.
@@ -69,8 +70,32 @@ export function createPitWheelHysteresis() {
 
 const PIT_LEAN_MAX = 0.42;
 
+/** Mean wheel inward depth (m) from pit rim at which straddle lean reaches full strength (smoothstep). */
+export const PIT_LEAN_FULL_PENETRATION_M = 0.32;
+
 function clamp(n, lo, hi) {
   return Math.max(lo, Math.min(hi, n));
+}
+
+function smoothstep01(t) {
+  const x = Math.max(0, Math.min(1, t));
+  return x * x * (3 - 2 * x);
+}
+
+/**
+ * Per-wheel distance from the nearest pit edge when inside the footprint; 0 if outside.
+ * Averaged over all wheels → grows as more of the car hangs over the opening.
+ */
+function meanWheelPitInwardDepth(wheelsXZ, half) {
+  let sum = 0;
+  for (const w of wheelsXZ) {
+    const ax = Math.abs(w.x);
+    const az = Math.abs(w.z);
+    if (ax < half && az < half) {
+      sum += Math.min(half - ax, half - az);
+    }
+  }
+  return sum / wheelsXZ.length;
 }
 
 /**
@@ -99,9 +124,14 @@ export function computePitGroundingFromWheels(wheelsXZ, pit, width, depth, wheel
   const wheelbase = (depth / 2 - 0.4) * 2;
   const track = (width / 2 + wheelThicknessHalf) * 2;
 
+  const half = pit.pitSize / 2;
+  const leanRamp = smoothstep01(meanWheelPitInwardDepth(wheelsXZ, half) / PIT_LEAN_FULL_PENETRATION_M);
+
   // Negative sign: lower wheels (pit side) must tilt down into the pit, not up
-  const pitch = clamp(-Math.atan2(hRear - hFront, wheelbase), -PIT_LEAN_MAX, PIT_LEAN_MAX);
-  const roll = clamp(-Math.atan2(hRight - hLeft, track), -PIT_LEAN_MAX, PIT_LEAN_MAX);
+  const rawPitch = clamp(-Math.atan2(hRear - hFront, wheelbase), -PIT_LEAN_MAX, PIT_LEAN_MAX);
+  const rawRoll = clamp(-Math.atan2(hRight - hLeft, track), -PIT_LEAN_MAX, PIT_LEAN_MAX);
+  const pitch = rawPitch * leanRamp;
+  const roll = rawRoll * leanRamp;
 
   return { supportYOffset, minWheelOffset, heightSpread, tippingSpread, pitch, roll };
 }

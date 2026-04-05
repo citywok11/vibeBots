@@ -90,24 +90,43 @@ const customiseScreen = createCustomiseScreen(document.body);
 const keyBindingsScreen = createKeyBindingsScreen(document.body, input);
 
 // Game loop
-const ACCEL = 20;
-const TURN_SPEED = 3;
+const ACCEL = 24;
+const TURN_SPEED = 3.6;
 let lastTime = performance.now();
 let rafId = null;
 let flipImpulseApplied = false;
 let carTrapped = false;
 let robotTrapped = false;
 
-// Pit-edge fall: accelerate while straddling; arena floor limit eases down toward the pit over fallAccum
-const PIT_TIP_GRAVITY = 14;
-const PIT_TIP_MAX_DOWN_SPEED = 22;
-const PIT_TIP_SPREAD_THRESHOLD = 0.006;
-const PIT_TIP_RECOVER_SPEED = 12;
+// Pit / edge — straddle fall: hysteresis (pit-support) delays pit contact; these tune slide speed vs rim.
+const PIT_TIP_GRAVITY = 10;
+const PIT_TIP_MAX_DOWN_SPEED = 18;
+const PIT_TIP_RECOVER_SPEED = 28;
 /** fallAccum at this value (m) → rim-allowed height reaches pit surface (full slide range) */
-const PIT_STRADDLE_FALL_RANGE = 0.95;
+const PIT_STRADDLE_FALL_RANGE = 1.05;
+/** Seconds to chase moving pit deck / arena height (critical-damping-style follow). */
+const RL_SURFACE_FOLLOW_TAU = 0.042;
+
+/** While straddling, arena rim still supports the car — do not sink Y through y=0 floor; slide toward pit instead. */
+const PIT_REDIRECT_SUPPORT_EPS = 1e-4;
+/** Horizontal pull (m) per (m/s pit fall speed × s) while redirecting. */
+const PIT_REDIRECT_PULL_PER_FALL = 0.62;
+/** Extra nose-down pitch (rad) per m of dragAccum while redirecting (dragAccum grows during slide). */
+const PIT_REDIRECT_PITCH_PER_DRAG_M = 0.34;
+/** Absolute cap on total pitch (rad) including redirect (pit-support caps ~0.42 base lean). */
+const PIT_REDIRECT_TOTAL_PITCH_CAP = 0.55;
+function pitTipStrength(spread) {
+  const lo = 0.002;
+  const hi = 0.055;
+  if (spread <= lo) return 0;
+  const t = (spread - lo) / (hi - lo);
+  const x = Math.max(0, Math.min(1, t));
+  return x * x * (3 - 2 * x);
+}
+
 const pitTipFall = {
-  car: { velocity: 0, fallAccum: 0 },
-  robot: { velocity: 0, fallAccum: 0 },
+  car: { velocity: 0, fallAccum: 0, dragAccum: 0, followY: null },
+  robot: { velocity: 0, fallAccum: 0, dragAccum: 0, followY: null },
 };
 
 const carPitWheelHyst = createPitWheelHysteresis();
@@ -146,11 +165,6 @@ function gameLoop(time) {
   } else {
     car.deactivateFlamethrower();
   }
-  if (input.isPressed('machineGun')) {
-    car.activateMachineGun();
-  } else {
-    car.deactivateMachineGun();
-  }
 
   car.update(dt);
   car.bounceOffWalls(ARENA_SIZE);
@@ -186,14 +200,20 @@ function gameLoop(time) {
     if (trapped) {
       tip.velocity = 0;
       tip.fallAccum = 0;
+      tip.dragAccum = 0;
+      tip.followY = null;
       entity.group.position.y = entity.groundY - PIT_DEPTH;
       entity.applyFrameRotation(0, 0);
+      if (entity.velocityY !== undefined) entity.velocityY = 0;
     } else if (pit.containsPoint(cx, cz) && pit.isOpen()) {
       tip.velocity = 0;
       tip.fallAccum = 0;
+      tip.dragAccum = 0;
+      tip.followY = null;
       setTrapped(true);
       entity.group.position.y = entity.groundY - PIT_DEPTH;
       entity.applyFrameRotation(0, 0);
+      if (entity.velocityY !== undefined) entity.velocityY = 0;
     } else {
       const wheels = computeWheelWorldXZ(cx, cz, yaw, width, depth, entity.wheelThicknessHalf);
       const { supportYOffset, pitch, roll, tippingSpread } = computePitGroundingFromWheels(
@@ -202,30 +222,97 @@ function gameLoop(time) {
       );
       const refY = entity.groundY + supportYOffset;
       const pitSurfaceY = entity.groundY + pit.getCoverY();
-      // Rim wheels: start at arena height, then ease the floor limit down toward the pit as fallAccum builds
+
+      const ts = pitTipStrength(tippingSpread);
+      if (ts > 0.001) {
+        tip.velocity += PIT_TIP_GRAVITY * dt * ts;
+        tip.velocity = Math.min(tip.velocity, PIT_TIP_MAX_DOWN_SPEED);
+      } else {
+        tip.velocity = 0;
+        tip.fallAccum = Math.max(0, tip.fallAccum - PIT_TIP_RECOVER_SPEED * dt);
+        tip.dragAccum = Math.max(0, tip.dragAccum - PIT_TIP_RECOVER_SPEED * dt);
+      }
+
+      const inc = ts > 0.001 ? tip.velocity * dt : 0;
+      if (inc > 0) {
+        tip.dragAccum += inc;
+      }
+
+      const straddleProgress = Math.min(1, tip.dragAccum / PIT_STRADDLE_FALL_RANGE);
       let yLowerBound = pitSurfaceY;
       if (supportYOffset >= -1e-5) {
-        const straddleProgress = Math.min(1, tip.fallAccum / PIT_STRADDLE_FALL_RANGE);
         yLowerBound = Math.max(
           pitSurfaceY,
           entity.groundY + (pitSurfaceY - entity.groundY) * straddleProgress,
         );
       }
 
-      const tipping = tippingSpread > PIT_TIP_SPREAD_THRESHOLD;
-      if (tipping) {
-        tip.velocity += PIT_TIP_GRAVITY * dt;
-        tip.velocity = Math.min(tip.velocity, PIT_TIP_MAX_DOWN_SPEED);
-        tip.fallAccum += tip.velocity * dt;
-      } else {
-        tip.velocity = 0;
-        tip.fallAccum = Math.max(0, tip.fallAccum - PIT_TIP_RECOVER_SPEED * dt);
+      const rimStillAtArena = supportYOffset >= -PIT_REDIRECT_SUPPORT_EPS;
+      const rawFallY = refY - tip.fallAccum;
+      const projectedRawFallY = refY - (tip.fallAccum + inc);
+      const projectedTargetY = Math.max(projectedRawFallY, yLowerBound);
+      const fallBinding = rawFallY >= yLowerBound - 1e-5;
+      const projectedFallBinding = projectedRawFallY >= yLowerBound - 1e-5;
+
+      const wouldSinkIfFallAccumIncrements =
+        ts > 0.001
+        && rimStillAtArena
+        && projectedFallBinding
+        && projectedTargetY < entity.groundY - PIT_REDIRECT_SUPPORT_EPS;
+
+      if (inc > 0 && !wouldSinkIfFallAccumIncrements) {
+        tip.fallAccum += inc;
       }
 
-      let y = refY - tip.fallAccum;
-      y = Math.max(y, yLowerBound);
-      entity.group.position.y = y;
-      entity.applyFrameRotation(pitch, roll);
+      const targetY = Math.max(refY - tip.fallAccum, yLowerBound);
+      const wouldSinkThroughFloor =
+        ts > 0.001
+        && rimStillAtArena
+        && fallBinding
+        && targetY < entity.groundY - PIT_REDIRECT_SUPPORT_EPS;
+
+      let appliedY = targetY;
+      let appliedPitch = pitch;
+      if (wouldSinkThroughFloor) {
+        appliedY = entity.groundY;
+        const pitchSign = Math.abs(pitch) > 0.02 ? Math.sign(pitch) : 1;
+        const extraPitch = Math.min(
+          PIT_REDIRECT_TOTAL_PITCH_CAP - Math.abs(pitch),
+          tip.dragAccum * PIT_REDIRECT_PITCH_PER_DRAG_M,
+        );
+        appliedPitch = pitch + pitchSign * Math.max(0, extraPitch);
+        appliedPitch = Math.max(
+          -PIT_REDIRECT_TOTAL_PITCH_CAP,
+          Math.min(PIT_REDIRECT_TOTAL_PITCH_CAP, appliedPitch),
+        );
+
+        const pull = tip.velocity * dt * PIT_REDIRECT_PULL_PER_FALL * (0.35 + 0.65 * ts);
+        if (pull > 0) {
+          const len = Math.hypot(cx, cz);
+          if (len > 0.25) {
+            entity.group.position.x += (-cx / len) * pull;
+            entity.group.position.z += (-cz / len) * pull;
+          } else {
+            const fx = -Math.sin(yaw);
+            const fz = -Math.cos(yaw);
+            entity.group.position.x += fx * pull;
+            entity.group.position.z += fz * pull;
+          }
+        }
+      }
+
+      if (ts > 0.001) {
+        tip.followY = appliedY;
+        entity.group.position.y = appliedY;
+        if (entity.velocityY !== undefined) entity.velocityY = wouldSinkThroughFloor ? 0 : -tip.velocity;
+      } else {
+        if (tip.followY === null) tip.followY = appliedY;
+        const alpha = 1 - Math.exp(-dt / RL_SURFACE_FOLLOW_TAU);
+        tip.followY += (appliedY - tip.followY) * alpha;
+        entity.group.position.y = tip.followY;
+        if (entity.velocityY !== undefined) entity.velocityY = 0;
+      }
+      entity.applyFrameRotation(appliedPitch, roll);
     }
   });
 
@@ -289,8 +376,12 @@ function startLoop() {
   robotTrapped = false;
   pitTipFall.car.velocity = 0;
   pitTipFall.car.fallAccum = 0;
+  pitTipFall.car.dragAccum = 0;
+  pitTipFall.car.followY = null;
   pitTipFall.robot.velocity = 0;
   pitTipFall.robot.fallAccum = 0;
+  pitTipFall.robot.dragAccum = 0;
+  pitTipFall.robot.followY = null;
   carPitWheelHyst.reset();
   robotPitWheelHyst.reset();
   renderer.domElement.style.display = 'block';
