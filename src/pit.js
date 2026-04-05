@@ -13,8 +13,8 @@ const WARN_THICKNESS = 0.02;
 // Shader tuning constants
 const COVER_EDGE_FALLOFF = 1.2;    // steepness of the edge-to-black vignette
 const COVER_OVERALL_DARK = 0.75;   // fraction by which the whole cover dims at full depth
-const WALL_STRIPE_COUNT = 8.0;     // number of hazard stripes per wall face
-const WARN_STRIPE_FREQ = 5.0;      // diagonal stripe frequency on the warning sign
+const WALL_STRIPE_COUNT = '8.0';    // number of hazard stripes per wall face
+const WARN_STRIPE_FREQ = '5.0';     // diagonal stripe frequency on the warning sign
 const WARN_BORDER_THRESHOLD = 0.88; // UV distance from centre at which the black border starts
 
 // Shared vertex shader used by cover, walls, and warning sign.

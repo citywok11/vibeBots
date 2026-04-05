@@ -1,7 +1,7 @@
 const ALARM_FREQ_HIGH = 880;
 const ALARM_FREQ_LOW = 440;
 const ALARM_INTERVAL_MS = 500;
-const GAIN_VOLUME = 0.3;
+const GAIN_VOLUME = 0.01;
 
 export function createPitAlarm(audioCtx = null) {
   let _audioCtx = audioCtx;
