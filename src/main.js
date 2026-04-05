@@ -22,6 +22,7 @@ import { createPit, DEFAULT_PIT_SIZE, PIT_DEPTH } from './pit.js';
 import { createPitButton } from './pit-button.js';
 import { createPitAlarm } from './pit-alarm.js';
 import { createFireHazards } from './fire-hazard.js';
+import { createArenaFlippers } from './arena-flipper.js';
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -65,6 +66,10 @@ const pitAlarm = createPitAlarm();
 // Fire hazards — flat grates on the floor that periodically emit fire
 const fireHazards = createFireHazards(ARENA_SIZE);
 fireHazards.hazards.forEach(h => scene.add(h.group));
+
+// Arena flippers — motor-driven paddles that launch robots
+const arenaFlippers = createArenaFlippers(ARENA_SIZE);
+arenaFlippers.flippers.forEach(f => scene.add(f.group));
 
 // Wire button → pit + alarm
 pitButton.onActivate(() => {
@@ -159,6 +164,12 @@ function gameLoop(time) {
 
   // Update fire hazards
   fireHazards.update(dt);
+
+  // Update arena flippers and check for robot launches
+  arenaFlippers.update(dt);
+  for (const af of arenaFlippers.flippers) {
+    af.applyLaunch(robot);
+  }
 
   if (input.isPressed('forward')) car.accelerate(ACCEL * dt);
   if (input.isPressed('backward')) car.accelerate(-ACCEL * dt);
@@ -393,6 +404,7 @@ function startLoop() {
   carPitWheelHyst.reset();
   robotPitWheelHyst.reset();
   fireHazards.reset();
+  arenaFlippers.reset();
   renderer.domElement.style.display = 'block';
   lastTime = performance.now();
   if (!rafId) rafId = requestAnimationFrame(gameLoop);
