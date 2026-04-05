@@ -225,7 +225,10 @@ describe('Car flipper', () => {
     const car = createCar();
     expect(car.flipper).toBeDefined();
     expect(car.flipper.isMesh).toBe(true);
-    expect(car.group.children).toContain(car.flipper);
+    // The flipper mesh lives inside a pivot group which is a child of the car group
+    expect(car.flipperPivot).toBeDefined();
+    expect(car.group.children).toContain(car.flipperPivot);
+    expect(car.flipperPivot.children).toContain(car.flipper);
   });
 
   it('should position the flipper at the front of the car', () => {
@@ -817,14 +820,14 @@ describe('Car applyCustomisation()', () => {
   it('should hide the flipper when flipper selection is null', () => {
     const car = createCar();
     car.applyCustomisation({ flipper: null });
-    expect(car.flipper.visible).toBe(false);
+    expect(car.flipperPivot.visible).toBe(false);
   });
 
   it('should show the flipper when flipper selection is standard', () => {
     const car = createCar();
-    car.flipper.visible = false;
+    car.flipperPivot.visible = false;
     car.applyCustomisation({ flipper: 'standard' });
-    expect(car.flipper.visible).toBe(true);
+    expect(car.flipperPivot.visible).toBe(true);
   });
 
   it('should hide all wheels when wheels selection is null', () => {
@@ -862,7 +865,7 @@ describe('Car applyCustomisation()', () => {
     car.applyCustomisation({ model: null, wheels: null, flipper: null });
     expect(car.mesh.visible).toBe(false);
     car.wheels.forEach(wheel => expect(wheel.visible).toBe(false));
-    expect(car.flipper.visible).toBe(false);
+    expect(car.flipperPivot.visible).toBe(false);
   });
 
   it('should apply mixed selections correctly', () => {
@@ -870,7 +873,7 @@ describe('Car applyCustomisation()', () => {
     car.applyCustomisation({ model: 'standard', wheels: null, flipper: 'standard' });
     expect(car.mesh.visible).toBe(true);
     car.wheels.forEach(wheel => expect(wheel.visible).toBe(false));
-    expect(car.flipper.visible).toBe(true);
+    expect(car.flipperPivot.visible).toBe(true);
   });
 
   it('should ignore unknown keys and not throw', () => {

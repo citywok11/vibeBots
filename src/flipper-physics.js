@@ -6,10 +6,14 @@ const ROBOT_HALF_DEPTH = ROBOT_BODY_DEPTH / 2;
 
 const FLIPPER_STRENGTH = 15;
 const LATERAL_FACTOR = 0.5;
-const FORWARD_FACTOR = 0.8;
 
 /**
- * Checks whether the robot's body overlaps the flipper zone in the car's local frame.
+ * Checks whether the robot's body overlaps the flipper zone in the car's local frame,
+ * accounting for the flipper's current rotation angle around its hinge pivot.
+ *
+ * The flipper swings in an arc: at angle θ the tip position (relative to the hinge)
+ * is at local Z = -flipperDepth × cos(θ) and local Y = flipperDepth × sin(θ).
+ * The contact zone follows this arc so the collider matches the visible flipper.
  *
  * @param {object} car   - createCar() instance (needs group.position, rotation, groundY)
  * @param {object} robot - createRobot() instance (needs group.position, collisionRadius, groundY)
@@ -27,9 +31,12 @@ export function checkFlipperContact(car, robot) {
   const localZ = dx * Math.sin(r) + dz * Math.cos(r);
 
   // The flipper hinge sits at the front face of the car body.
-  // The flipper tip (when flat) reaches a further flipperDepth beyond the hinge.
+  // At flipperAngle θ, the projected Z-reach of the flipper shrinks by cos(θ)
+  // and the tip rises by flipperDepth × sin(θ).
+  const angle = car.flipperAngle || 0;
   const flipperHingeZ = -(CAR_BODY_DEPTH / 2);
-  const flipperTipZ = -(CAR_BODY_DEPTH / 2 + car.flipperDepth);
+  const projectedDepth = car.flipperDepth * Math.cos(angle);
+  const flipperTipZ = flipperHingeZ - projectedDepth;
   const flipperHalfWidth = CAR_BODY_WIDTH / 2;
 
   // Robot center must be ahead of the car body front face and not past the flipper tip
@@ -42,8 +49,13 @@ export function checkFlipperContact(car, robot) {
     return { inContact: false, xOffset: 0 };
   }
 
-  // Only flip a grounded robot — an airborne robot is already in the air
-  if (robot.group.position.y > robot.groundY + 0.1) {
+  // Height check: the flipper tip rises as it swings.  A grounded robot is only
+  // in contact if its body is within reach of the elevated flipper surface.
+  // Tip Y (relative to car group origin) = -bodyHeight/2 + flipperDepth × sin(θ)
+  // We allow contact when the robot is within 0.1 + tipRise of the ground.
+  const tipRise = car.flipperDepth * Math.sin(angle);
+  const maxContactY = robot.groundY + tipRise + 0.1;
+  if (robot.group.position.y > maxContactY) {
     return { inContact: false, xOffset: 0 };
   }
 
@@ -56,9 +68,14 @@ export function checkFlipperContact(car, robot) {
  * Applies a one-shot flip impulse to the robot when the flipper is actively swinging
  * upward and the robot is within the flipper zone.
  *
- * Vertical impulse magnitude scales with the current flipper angle relative to its max,
- * multiplied by the flipper's power rating.
- * Lateral impulse scales with how far off-centre the contact point is, then is rotated
+ * The impulse direction is perpendicular to the flipper surface at its current angle,
+ * matching the arc of a real hinged flipper.  At angle θ, the flipper surface normal
+ * in the car's local frame is (0, cos θ, -sin θ).  This means:
+ *   - At θ ≈ 0 the impulse is mostly vertical (straight up)
+ *   - As θ increases the impulse tilts forward (pushing the robot away)
+ *
+ * The total force scales linearly with the normalised angle and the flipper's power.
+ * Lateral impulse scales with how far off-centre the contact is, then is rotated
  * back into world space based on the car's heading.
  *
  * @param {object} car   - createCar() instance
@@ -71,16 +88,21 @@ export function applyFlipperImpulse(car, robot) {
   const contact = checkFlipperContact(car, robot);
   if (!contact.inContact) return false;
 
-  const normalizedAngle = car.flipperAngle / car.flipperMaxAngle;
+  const angle = car.flipperAngle;
+  const normalizedAngle = angle / car.flipperMaxAngle;
   const force = FLIPPER_STRENGTH * normalizedAngle * car.flipperPower;
 
+  // Surface-normal components in car-local space (perpendicular to the tilted flipper)
+  const normalUp = Math.cos(angle);       // vertical component
+  const normalFwd = Math.sin(angle);      // forward component (toward -Z in car space)
+
   // Vertical component — sends the robot into the air
-  robot.velocityY += force;
+  robot.velocityY += force * normalUp;
 
   // Forward component — pushes the robot in the car's facing direction
-  const forwardForce = force * FORWARD_FACTOR;
+  const forwardForce = force * normalFwd;
   const carAngle = car.rotation;
-  robot.velocity.x += forwardForce * Math.sin(carAngle);
+  robot.velocity.x += -forwardForce * Math.sin(carAngle);
   robot.velocity.z += -forwardForce * Math.cos(carAngle);
 
   // Lateral component — pushes the robot sideways based on contact offset

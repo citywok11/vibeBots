@@ -272,28 +272,44 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   }
 
   // --- Flipper meshes (one per FLIPPER_CATALOGUE entry) ---
+  // Each flipper is built with a pivot Group at the hinge point so the paddle
+  // swings in a true rotational arc rather than translating linearly.
   function flipperThickness(depth) {
     if (depth < 1) return 0.1;
     if (depth < 1.5) return 0.15;
     return 0.25;
   }
 
-  function buildFlipperMesh(spec) {
+  function buildFlipperSet(spec) {
+    // Pivot sits at the hinge: bottom of the car body, front face.
+    const pivot = new THREE.Group();
+    pivot.position.set(0, -height / 2, -depth / 2);
+    group.add(pivot);
+
+    // Flipper mesh is a child of the pivot.  The geometry is un-translated;
+    // instead the mesh is offset so the back edge sits at the pivot origin
+    // and the paddle extends forward (local -Z).
     const geo = new THREE.BoxGeometry(width, flipperThickness(spec.depth), spec.depth);
-    geo.translate(0, 0, -spec.depth / 2);
     const mat = new THREE.MeshStandardMaterial({ color: spec.color });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(0, -height / 2, -depth / 2);
+    // Offset: centre of geometry is half the flipper depth ahead of the hinge
+    mesh.position.set(0, 0, -spec.depth / 2);
     mesh.castShadow = true;
-    group.add(mesh);
-    return mesh;
+    pivot.add(mesh);
+
+    return { pivot, mesh };
   }
 
-  const flipperMeshes = new Map();
+  const flipperSets = new Map(); // id → { pivot, mesh }
+  const flipperPivots = new Map(); // id → pivot group
+  const flipperMeshes = new Map(); // id → mesh (kept for backward-compat getter)
   for (const spec of FLIPPER_CATALOGUE) {
-    const mesh = buildFlipperMesh(spec);
-    mesh.visible = (spec.id === 'standard');
-    flipperMeshes.set(spec.id, mesh);
+    const set = buildFlipperSet(spec);
+    const isDefault = spec.id === 'standard';
+    set.pivot.visible = isDefault;
+    flipperSets.set(spec.id, set);
+    flipperPivots.set(spec.id, set.pivot);
+    flipperMeshes.set(spec.id, set.mesh);
   }
   const flipper = flipperMeshes.get('standard'); // retained for backward compatibility
 
@@ -369,7 +385,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     if ('flipper' in selections) {
       hasFlipper = selections.flipper !== null;
       activeFlipperId = selections.flipper;
-      flipperMeshes.forEach((mesh, id) => { mesh.visible = id === selections.flipper; });
+      flipperPivots.forEach((pivot, id) => { pivot.visible = id === selections.flipper; });
       if (selections.flipper !== null) {
         const spec = FLIPPER_CATALOGUE.find(f => f.id === selections.flipper);
         if (spec) {
@@ -417,7 +433,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     hasWheels = true;
     flipperAngle = 0;
     flipperActive = false;
-    flipperMeshes.forEach(mesh => { mesh.rotation.x = 0; });
+    flipperPivots.forEach(pivot => { pivot.rotation.x = 0; });
     flamethrowerActive = false;
     flame.visible = false;
     particles.forEach(p => {
@@ -563,8 +579,8 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
       }
     }
 
-    // Flipper animation
-    const activeFlipper = flipperMeshes.get(activeFlipperId || 'standard');
+    // Flipper animation — rotate the pivot group so the paddle swings in an arc
+    const activePivot = flipperPivots.get(activeFlipperId || 'standard');
     if (flipperActive) {
       flipperAngle += currentFlipperUpSpeed * dt;
       if (flipperAngle >= currentFlipperMaxAngle) {
@@ -575,7 +591,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
       flipperAngle -= currentFlipperDownSpeed * dt;
       if (flipperAngle < 0) flipperAngle = 0;
     }
-    if (activeFlipper) activeFlipper.rotation.x = -flipperAngle;
+    if (activePivot) activePivot.rotation.x = -flipperAngle;
 
     // Flamethrower animation
     flame.visible = flamethrowerActive;
@@ -669,6 +685,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     get mesh() { return bodyMeshes.get(activeModelId || 'standard'); },
     get wheels() { return wheelSets.get(activeWheelId || 'standard'); },
     get flipper() { return flipperMeshes.get(activeFlipperId || 'standard'); },
+    get flipperPivot() { return flipperPivots.get(activeFlipperId || 'standard'); },
     flamethrower,
     flame,
     particles,

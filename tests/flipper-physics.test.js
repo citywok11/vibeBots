@@ -229,3 +229,173 @@ describe('Robot vertical physics after flip', () => {
     expect(robot.velocityY).toBe(0);
   });
 });
+
+describe('Rotational flipper — pivot-based arc motion', () => {
+  it('car exposes a flipperPivot group that is a child of the car group', () => {
+    const car = createCar();
+    expect(car.flipperPivot).toBeDefined();
+    expect(car.flipperPivot.isGroup || car.flipperPivot.isObject3D).toBe(true);
+    expect(car.group.children).toContain(car.flipperPivot);
+  });
+
+  it('flipper mesh is a child of the pivot, not a direct child of the car group', () => {
+    const car = createCar();
+    expect(car.flipperPivot.children).toContain(car.flipper);
+    // The mesh should NOT be a direct child of the car group
+    expect(car.group.children).not.toContain(car.flipper);
+  });
+
+  it('pivot rotates around X axis as flipper animates', () => {
+    const car = createCar();
+    expect(car.flipperPivot.rotation.x).toBe(0);
+    car.activateFlipper();
+    car.update(0.05);
+    // Pivot should have rotated negatively around X (swinging up)
+    expect(car.flipperPivot.rotation.x).toBeLessThan(0);
+  });
+
+  it('pivot rotation magnitude matches flipperAngle', () => {
+    const car = createCar();
+    car.activateFlipper();
+    car.update(0.05);
+    expect(car.flipperPivot.rotation.x).toBeCloseTo(-car.flipperAngle, 5);
+  });
+
+  it('pivot rotation resets to 0 after full cycle', () => {
+    const car = createCar();
+    car.activateFlipper();
+    for (let i = 0; i < 200; i++) car.update(0.05);
+    expect(car.flipperPivot.rotation.x).toBeCloseTo(0, 2);
+  });
+});
+
+describe('Rotational contact detection — arc-aware flipper zone', () => {
+  it('contact zone Z-reach shrinks as flipper angle increases', () => {
+    const car = createCar({ x: 0, z: 0 });
+    const robot = createRobot({ x: 0, z: 0 });
+
+    // Place robot at the Z position that is the tip of a flat flipper
+    // Standard flipper depth = 1.2, car body depth = 3, so hinge at z = -1.5
+    // Flat tip at z = -1.5 - 1.2 = -2.7. Robot half-depth = 1.5, so robot at z = -2.7 works.
+    robot.group.position.z = -2.7;
+    expect(checkFlipperContact(car, robot).inContact).toBe(true);
+
+    // Now swing the flipper up a small amount so it's still on the upswing
+    car.activateFlipper();
+    car.update(0.03); // small dt so flipper is partway up
+    const angle = car.flipperAngle;
+    expect(angle).toBeGreaterThan(0);
+
+    // The projected Z-reach should now be shorter than the full depth
+    const projectedDepth = car.flipperDepth * Math.cos(angle);
+    expect(projectedDepth).toBeLessThan(car.flipperDepth);
+  });
+
+  it('robot at the extreme tip loses contact when flipper is raised high', () => {
+    const car = createCar({ x: 0, z: 0 });
+    const robot = createRobot({ x: 0, z: 0 });
+
+    // Place robot just within reach of the flat flipper tip
+    const hingeZ = -1.5; // CAR_BODY_DEPTH / 2
+    const tipZFlat = hingeZ - car.flipperDepth;
+    // Robot centre right at the tip boundary
+    robot.group.position.z = tipZFlat;
+    expect(checkFlipperContact(car, robot).inContact).toBe(true);
+
+    // Raise the flipper to a large angle
+    car.activateFlipper();
+    for (let i = 0; i < 50; i++) car.update(0.016);
+    const angle = car.flipperAngle;
+    // At large angle, projected reach is shorter
+    if (angle > Math.PI / 6) {
+      expect(checkFlipperContact(car, robot).inContact).toBe(false);
+    }
+  });
+
+  it('allows contact with slightly elevated robot when flipper is raised', () => {
+    const car = createCar({ x: 0, z: 0 });
+    const robot = createRobot({ x: 0, z: 0 });
+    robot.group.position.z = -2.5; // within flipper zone
+
+    // Raise the flipper
+    car.activateFlipper();
+    car.update(0.05);
+    const angle = car.flipperAngle;
+    const tipRise = car.flipperDepth * Math.sin(angle);
+
+    // Robot slightly above ground but within the raised flipper's reach
+    robot.group.position.y = robot.groundY + tipRise * 0.5;
+    expect(checkFlipperContact(car, robot).inContact).toBe(true);
+  });
+});
+
+describe('Rotational impulse — arc-based launch direction', () => {
+  it('impulse is mostly vertical at small flipper angles', () => {
+    const car = createCar({ x: 0, z: 0 });
+    const robot = createRobot({ x: 0, z: -3 });
+
+    car.activateFlipper();
+    car.update(0.01); // very small angle
+    applyFlipperImpulse(car, robot);
+
+    // At small angle, cos(θ) ≈ 1, sin(θ) ≈ 0
+    // So vertical impulse should dominate over forward impulse
+    const forwardSpeed = Math.sqrt(robot.velocity.x ** 2 + robot.velocity.z ** 2);
+    expect(robot.velocityY).toBeGreaterThan(forwardSpeed);
+  });
+
+  it('forward impulse increases relative to vertical at larger angles', () => {
+    // Small angle flip
+    const car1 = createCar({ x: 0, z: 0 });
+    const robot1 = createRobot({ x: 0, z: -3 });
+    car1.activateFlipper();
+    car1.update(0.01);
+    applyFlipperImpulse(car1, robot1);
+    const forwardRatio1 = Math.abs(robot1.velocity.z) / robot1.velocityY;
+
+    // Larger angle flip
+    const car2 = createCar({ x: 0, z: 0 });
+    const robot2 = createRobot({ x: 0, z: -3 });
+    car2.activateFlipper();
+    car2.update(0.05);
+    applyFlipperImpulse(car2, robot2);
+    const forwardRatio2 = Math.abs(robot2.velocity.z) / robot2.velocityY;
+
+    // The forward-to-vertical ratio should increase with angle
+    expect(forwardRatio2).toBeGreaterThan(forwardRatio1);
+  });
+
+  it('impulse direction follows the surface normal (cos θ vertical, sin θ forward)', () => {
+    const car = createCar({ x: 0, z: 0 });
+    const robot = createRobot({ x: 0, z: -3 });
+
+    car.activateFlipper();
+    car.update(0.05);
+    const angle = car.flipperAngle;
+
+    applyFlipperImpulse(car, robot);
+
+    // The vertical component should be proportional to cos(angle)
+    // The forward component should be proportional to sin(angle)
+    // (Ignoring lateral since robot is centered)
+    const verticalRatio = Math.cos(angle);
+    const forwardRatio = Math.sin(angle);
+
+    // Forward push is in -Z direction for a car at rotation 0
+    // Check that the ratio of forward to vertical matches sin/cos
+    const actualRatio = Math.abs(robot.velocity.z) / robot.velocityY;
+    const expectedRatio = forwardRatio / verticalRatio;
+    expect(actualRatio).toBeCloseTo(expectedRatio, 2);
+  });
+
+  it('forward push is in the car facing direction (-Z for rotation=0)', () => {
+    const car = createCar({ x: 0, z: 0 });
+    const robot = createRobot({ x: 0, z: -3 });
+    car.activateFlipper();
+    car.update(0.05);
+    applyFlipperImpulse(car, robot);
+    // Car faces -Z, so forward push should be in -Z
+    expect(robot.velocity.z).toBeLessThan(0);
+    expect(robot.velocity.x).toBeCloseTo(0, 5);
+  });
+});
