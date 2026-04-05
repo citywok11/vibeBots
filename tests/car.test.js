@@ -1,6 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { createCar, MODEL_CATALOGUE, WHEEL_CATALOGUE, FLIPPER_CATALOGUE } from '../src/car.js';
 
+// Helper: get the effective local position of a wheel, accounting for steer group wrapper.
+// Front wheels are nested inside a steer group that holds their position.
+function wheelPos(wheel) {
+  const pos = wheel.position;
+  if (pos.x === 0 && pos.y === 0 && pos.z === 0 && wheel.parent && wheel.parent.isGroup) {
+    return wheel.parent.position;
+  }
+  return pos;
+}
+
 describe('Car', () => {
   it('should create a car with a mesh', () => {
     const car = createCar();
@@ -108,24 +118,25 @@ describe('Car wheels', () => {
   it('each wheel should be a mesh with cylinder geometry', () => {
     const car = createCar();
     car.wheels.forEach(wheel => {
-      expect(wheel.isMesh).toBe(true);
-      expect(wheel.geometry.type).toBe('CylinderGeometry');
+      const rim = wheel.children[0].children[0];
+      expect(rim.isMesh).toBe(true);
+      expect(rim.geometry.type).toBe('CylinderGeometry');
     });
   });
 
   it('should have 2 wheels at the front and 2 at the back', () => {
     const car = createCar();
     // Front wheels have negative local Z, back wheels have positive local Z
-    const frontWheels = car.wheels.filter(w => w.position.z < 0);
-    const backWheels = car.wheels.filter(w => w.position.z > 0);
+    const frontWheels = car.wheels.filter(w => wheelPos(w).z < 0);
+    const backWheels = car.wheels.filter(w => wheelPos(w).z > 0);
     expect(frontWheels).toHaveLength(2);
     expect(backWheels).toHaveLength(2);
   });
 
   it('should have wheels on left and right sides', () => {
     const car = createCar();
-    const leftWheels = car.wheels.filter(w => w.position.x < 0);
-    const rightWheels = car.wheels.filter(w => w.position.x > 0);
+    const leftWheels = car.wheels.filter(w => wheelPos(w).x < 0);
+    const rightWheels = car.wheels.filter(w => wheelPos(w).x > 0);
     expect(leftWheels).toHaveLength(2);
     expect(rightWheels).toHaveLength(2);
   });
@@ -133,20 +144,24 @@ describe('Car wheels', () => {
   it('should have wheels attached to the car group so they move together', () => {
     const car = createCar();
     car.wheels.forEach(wheel => {
-      expect(car.group.children).toContain(wheel);
+      // Front wheels are nested inside a steer group, back wheels are direct children
+      const isDirect = car.group.children.includes(wheel);
+      const isNested = car.group.children.some(child => child.isGroup && child.children.includes(wheel));
+      expect(isDirect || isNested).toBe(true);
     });
   });
 
   it('wheels should be at the bottom of the car body', () => {
     const car = createCar();
     car.wheels.forEach(wheel => {
-      expect(wheel.position.y).toBeLessThanOrEqual(0);
+      expect(wheelPos(wheel).y).toBeLessThanOrEqual(0);
     });
   });
 
   it('should accept a custom wheel radius', () => {
     const car = createCar({ x: 0, z: 0 }, { wheelRadius: 0.8 });
-    const params = car.wheels[0].geometry.parameters;
+    const rim = car.wheels[0].children[0].children[0];
+    const params = rim.geometry.parameters;
     expect(params.radiusTop).toBeCloseTo(0.8);
     expect(params.radiusBottom).toBeCloseTo(0.8);
   });
@@ -164,22 +179,25 @@ describe('Car wheels', () => {
     radii.forEach(r => {
       const car = createCar({ x: 0, z: 0 }, { wheelRadius: r });
       // The wheel center in local space + group Y should place the bottom at y=0
-      const wheelWorldY = car.group.position.y + car.wheels[0].position.y;
+      const wheelWorldY = car.group.position.y + wheelPos(car.wheels[0]).y;
       expect(wheelWorldY).toBeCloseTo(r, 5);
     });
   });
 
   it('should default to a reasonable wheel radius when none specified', () => {
     const car = createCar();
-    const params = car.wheels[0].geometry.parameters;
+    const rim = car.wheels[0].children[0].children[0];
+    const params = rim.geometry.parameters;
     expect(params.radiusTop).toBeGreaterThan(0);
   });
 
   it('should scale wheel width proportionally to radius', () => {
     const small = createCar({ x: 0, z: 0 }, { wheelRadius: 0.5 });
     const big = createCar({ x: 0, z: 0 }, { wheelRadius: 1.0 });
-    const smallWidth = small.wheels[0].geometry.parameters.height; // cylinder "height" = wheel width
-    const bigWidth = big.wheels[0].geometry.parameters.height;
+    const smallRim = small.wheels[0].children[0].children[0];
+    const bigRim = big.wheels[0].children[0].children[0];
+    const smallWidth = smallRim.geometry.parameters.height; // cylinder "height" = wheel width
+    const bigWidth = bigRim.geometry.parameters.height;
     expect(bigWidth).toBeGreaterThan(smallWidth);
   });
 

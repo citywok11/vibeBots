@@ -7,6 +7,11 @@ export const ROBOT_BODY_WIDTH = 2;
 export const ROBOT_BODY_DEPTH = 3;
 const FRICTION = 0.98;
 const COLLISION_LATERAL_FRICTION = 0.8;
+const SPOKE_COUNT = 4;
+const SPOKE_COLOR = 0x888888;
+const AXLE_GAP = 0.3;
+const AXLE_RADIUS = 0.08;
+const AXLE_COLOR = 0x555555;
 
 export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
   const width = ROBOT_BODY_WIDTH;
@@ -31,8 +36,12 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
   const wheelWidth = wheelRadius * 0.5;
   const wheelGeometry = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelWidth, 16);
   const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x222222 });
+  const spokeMaterial = new THREE.MeshStandardMaterial({ color: SPOKE_COLOR });
+  const axleMaterial = new THREE.MeshStandardMaterial({ color: AXLE_COLOR });
+  const axleLength = AXLE_GAP + wheelWidth / 2;
+  const axleGeo = new THREE.CylinderGeometry(AXLE_RADIUS, AXLE_RADIUS, axleLength, 8);
 
-  const wheelOffsetX = width / 2 + wheelWidth / 2;
+  const wheelOffsetX = width / 2 + AXLE_GAP + wheelWidth / 2;
   const wheelOffsetZ = depth / 2 - 0.4;
   const wheelY = -height / 2;
 
@@ -43,12 +52,38 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
     { x:  wheelOffsetX, z:  wheelOffsetZ },
   ];
 
-  wheelPositions.forEach(pos => {
-    const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
-    wheel.position.set(pos.x, wheelY, pos.z);
-    wheel.rotation.z = Math.PI / 2;
-    wheel.castShadow = true;
-    group.add(wheel);
+  const wheels = wheelPositions.map(pos => {
+    const wheelGroup = new THREE.Group();
+    wheelGroup.position.set(pos.x, wheelY, pos.z);
+    wheelGroup.rotation.z = Math.PI / 2;
+
+    // Inner spin group rotates around Y (the cylinder axis) independently
+    const spinGroup = new THREE.Group();
+
+    const rim = new THREE.Mesh(wheelGeometry, wheelMaterial);
+    rim.castShadow = true;
+    spinGroup.add(rim);
+
+    // Spoke markings so rotation is visible
+    const spokeWidth = wheelRadius * 0.15;
+    const spokeDepth = wheelWidth + 0.01;
+    for (let i = 0; i < SPOKE_COUNT; i++) {
+      const spokeGeo = new THREE.BoxGeometry(spokeWidth, wheelRadius * 1.8, spokeDepth);
+      const spoke = new THREE.Mesh(spokeGeo, spokeMaterial);
+      spoke.rotation.y = (Math.PI / SPOKE_COUNT) * i;
+      spinGroup.add(spoke);
+    }
+
+    wheelGroup.add(spinGroup);
+
+    // Axle pole connecting body to wheel
+    const axle = new THREE.Mesh(axleGeo, axleMaterial);
+    const sign = Math.sign(pos.x);
+    axle.position.y = sign * (axleLength / 2);
+    wheelGroup.add(axle);
+
+    group.add(wheelGroup);
+    return wheelGroup;
   });
 
   const mass = options.mass ?? 1;
@@ -138,6 +173,17 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
     if (Math.abs(rollTilt) < 0.001) rollTilt = 0;
 
     applyFrameRotation(0, 0);
+
+    // Spin wheels based on forward speed
+    const angle = group.rotation.y;
+    const fwdX = Math.sin(angle);
+    const fwdZ = -Math.cos(angle);
+    const forwardSpeed = velocity.x * fwdX + velocity.z * fwdZ;
+    const spinDelta = (forwardSpeed * dt) / wheelRadius;
+    wheels.forEach(w => {
+      const spinGroup = w.children[0];
+      spinGroup.rotation.y += spinDelta;
+    });
   }
 
   function applyFrameRotation(pitPitch, pitRoll) {

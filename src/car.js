@@ -2,6 +2,13 @@ import * as THREE from 'three';
 
 const RESTITUTION = 0.6;
 const FRICTION = 0.98;
+const SPOKE_COUNT = 4;
+const SPOKE_COLOR = 0x888888;
+const AXLE_GAP = 0.3;
+const AXLE_RADIUS = 0.08;
+const AXLE_COLOR = 0x555555;
+const MAX_STEER_ANGLE = Math.PI / 6; // 30 degrees max front wheel steer
+const STEER_RETURN_SPEED = 8;        // how fast wheels centre when not turning (radians/s)
 
 export const CAR_BODY_WIDTH = 2;
 export const CAR_BODY_DEPTH = 3;
@@ -63,26 +70,67 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   function buildWheelSet(spec) {
     const r = spec.radius;
     const wWidth = r * 0.5;
-    const offsetX = width / 2 + wWidth / 2;
+    const offsetX = width / 2 + AXLE_GAP + wWidth / 2;
     const offsetZ = depth / 2 - 0.4;
     // Adjust local Y so each wheel type sits on the floor regardless of groupY.
     const localY = r - groupY;
     const geo = new THREE.CylinderGeometry(r, r, wWidth, spec.id === 'offroad' ? 12 : 16);
     const mat = new THREE.MeshStandardMaterial({ color: spec.color });
+    const spokeMat = new THREE.MeshStandardMaterial({ color: SPOKE_COLOR });
+    const axleMat = new THREE.MeshStandardMaterial({ color: AXLE_COLOR });
+    // Axle length spans from body edge to inner face of wheel
+    const axleLength = AXLE_GAP + wWidth / 2;
+    const axleGeo = new THREE.CylinderGeometry(AXLE_RADIUS, AXLE_RADIUS, axleLength, 8);
     const positions = [
-      { x: -offsetX, z: -offsetZ },
-      { x:  offsetX, z: -offsetZ },
-      { x: -offsetX, z:  offsetZ },
-      { x:  offsetX, z:  offsetZ },
+      { x: -offsetX, z: -offsetZ, front: true },
+      { x:  offsetX, z: -offsetZ, front: true },
+      { x: -offsetX, z:  offsetZ, front: false },
+      { x:  offsetX, z:  offsetZ, front: false },
     ];
-    return positions.map(pos => {
-      const wheel = new THREE.Mesh(geo, mat);
-      wheel.position.set(pos.x, localY, pos.z);
-      wheel.rotation.z = Math.PI / 2;
-      wheel.castShadow = true;
-      group.add(wheel);
-      return wheel;
+    const steerGroups = [];
+    const wheelGroups = positions.map(pos => {
+      const wheelGroup = new THREE.Group();
+      wheelGroup.rotation.z = Math.PI / 2;
+
+      // Inner spin group rotates around Y (the cylinder axis) independently
+      const spinGroup = new THREE.Group();
+
+      const rim = new THREE.Mesh(geo, mat);
+      rim.castShadow = true;
+      spinGroup.add(rim);
+
+      // Spoke markings across the wheel face so rotation is visible
+      const spokeWidth = r * 0.15;
+      const spokeDepth = wWidth + 0.01;
+      for (let i = 0; i < SPOKE_COUNT; i++) {
+        const spokeGeo = new THREE.BoxGeometry(spokeWidth, r * 1.8, spokeDepth);
+        const spoke = new THREE.Mesh(spokeGeo, spokeMat);
+        spoke.rotation.y = (Math.PI / SPOKE_COUNT) * i;
+        spinGroup.add(spoke);
+      }
+
+      wheelGroup.add(spinGroup);
+
+      // Axle pole connecting body to wheel — sits in the wheelGroup but
+      // outside the spin group so it doesn't rotate with the wheel.
+      const axle = new THREE.Mesh(axleGeo, axleMat);
+      const sign = Math.sign(pos.x);
+      // In wheelGroup local space (after z=PI/2), local Y points along world X.
+      // Position the axle halfway between body edge and wheel centre.
+      axle.position.y = sign * (axleLength / 2);
+      wheelGroup.add(axle);
+
+      // Wrap every wheel in a steering group so it pivots around world Y
+      const steerGroup = new THREE.Group();
+      steerGroup.position.set(pos.x, localY, pos.z);
+      steerGroup.add(wheelGroup);
+      group.add(steerGroup);
+      steerGroups.push(steerGroup);
+
+      return wheelGroup;
     });
+    wheelGroups._steerGroups = steerGroups;
+    return wheelGroups;
   }
 
   // The standard wheel set uses options.wheelRadius so the existing API
@@ -264,6 +312,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   let hasWheels = true;
   let hasFlipper = true;
   let angularVelocity = 0;
+  let steerAngle = 0;     // current visual steering angle of front wheels
 
   // Pitch and roll tilt from collision impacts (visual only)
   const TILT_DECAY = 8;    // how fast tilt returns to zero (per second)
@@ -280,6 +329,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   let currentFriction = FRICTION;
   let currentVelocityMult = 1.0;
   let currentWheelWidth = wheelWidth;
+  let currentWheelRadius = wheelRadius;
   let currentFlipperPower = FLIPPER_CATALOGUE[0].power;
   let currentFlipperMaxAngle = FLIPPER_CATALOGUE[0].maxAngle;
   let currentFlipperUpSpeed = FLIPPER_CATALOGUE[0].upSpeed;
@@ -308,6 +358,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
           currentFriction = spec.friction;
           currentVelocityMult = spec.velocityMult;
           currentWheelWidth = spec.radius * 0.5;
+          currentWheelRadius = spec.radius;
         }
       } else {
         currentFriction = FRICTION;
@@ -360,6 +411,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     angularVelocity = 0;
     pitchTilt = 0;
     rollTilt = 0;
+    steerAngle = 0;
     hasWheels = true;
     flipperAngle = 0;
     flipperActive = false;
@@ -392,12 +444,14 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     if (!hasWheels) return;
     rotation += amount;
     group.rotation.y = rotation;
+    steerAngle = MAX_STEER_ANGLE;
   }
 
   function turnRight(amount) {
     if (!hasWheels) return;
     rotation -= amount;
     group.rotation.y = rotation;
+    steerAngle = -MAX_STEER_ANGLE;
   }
 
   function bounceOffWalls(arenaSize) {
@@ -410,10 +464,10 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     // The car is asymmetric in depth: the flipper projects only from the front.
     // Use the four corners of the effective bounding shape to compute the true
     // axis-aligned extents at any rotation, rather than a symmetric rectangle.
-    //   halfW          = width/2 + currentWheelWidth (wheels extend past each side)
+    //   halfW          = width/2 + AXLE_GAP + currentWheelWidth (wheels extend past each side)
     //   frontHalfDepth = depth/2 + currentFlipperDepth*cos(angle) (flipper at front)
     //   backHalfDepth  = depth/2 (back of body, no flipper)
-    const halfW = width / 2 + currentWheelWidth;
+    const halfW = width / 2 + AXLE_GAP + currentWheelWidth;
     const frontHalfDepth = depth / 2 + (hasFlipper ? currentFlipperDepth * Math.cos(flipperAngle) : 0);
     const backHalfDepth = depth / 2;
 
@@ -473,6 +527,30 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     if (Math.abs(rollTilt) < 0.001) rollTilt = 0;
 
     applyFrameRotation(0, 0);
+
+    // Spin wheels based on forward speed
+    const fwdX = -Math.sin(rotation);
+    const fwdZ = -Math.cos(rotation);
+    const forwardSpeed = velocity.x * fwdX + velocity.z * fwdZ;
+    const spinDelta = (forwardSpeed * dt) / currentWheelRadius;
+    const activeWheels = wheelSets.get(activeWheelId || 'standard');
+    if (activeWheels) {
+      activeWheels.forEach(w => {
+        const spinGroup = w.children[0];
+        spinGroup.rotation.y += spinDelta;
+      });
+
+      // Steer front wheels — decay back to centre when not actively turning
+      if (steerAngle > 0) {
+        steerAngle = Math.max(0, steerAngle - STEER_RETURN_SPEED * dt);
+      } else if (steerAngle < 0) {
+        steerAngle = Math.min(0, steerAngle + STEER_RETURN_SPEED * dt);
+      }
+      const steerGroups = activeWheels._steerGroups;
+      if (steerGroups) {
+        steerGroups.forEach(sg => { sg.rotation.y = steerAngle; });
+      }
+    }
 
     // Flipper animation
     const activeFlipper = flipperMeshes.get(activeFlipperId || 'standard');

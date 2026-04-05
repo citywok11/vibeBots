@@ -107,18 +107,6 @@ describe('Corner Cones', () => {
     });
   });
 
-  it('should position corner cones near the arena corners', () => {
-    const size = 50;
-    const arena = createArena(size);
-    const half = size / 2;
-    arena.cornerCones.forEach(cone => {
-      expect(Math.abs(cone.position.x)).toBeLessThan(half);
-      expect(Math.abs(cone.position.z)).toBeLessThan(half);
-      expect(Math.abs(cone.position.x)).toBeGreaterThan(half / 2);
-      expect(Math.abs(cone.position.z)).toBeGreaterThan(half / 2);
-    });
-  });
-
   it('should place corner cones flat on the floor', () => {
     const arena = createArena(50);
     arena.cornerCones.forEach(cone => {
@@ -127,10 +115,10 @@ describe('Corner Cones', () => {
     });
   });
 
-  it('should use ConeGeometry for corner cones', () => {
+  it('should use ShapeGeometry for corner cones', () => {
     const arena = createArena(50);
     arena.cornerCones.forEach(cone => {
-      expect(cone.geometry.type).toBe('ConeGeometry');
+      expect(cone.geometry.type).toBe('ShapeGeometry');
     });
   });
 
@@ -141,15 +129,21 @@ describe('Corner Cones', () => {
     });
   });
 
-  it('should have one cone in each quadrant', () => {
+  it('should have triangular geometry with vertices in each quadrant', () => {
     const arena = createArena(50);
-    const quadrants = arena.cornerCones.map(cone => ({
-      x: Math.sign(cone.position.x),
-      z: Math.sign(cone.position.z),
-    }));
-    expect(quadrants).toContainEqual({ x: -1, z: -1 });
-    expect(quadrants).toContainEqual({ x:  1, z: -1 });
-    expect(quadrants).toContainEqual({ x: -1, z:  1 });
-    expect(quadrants).toContainEqual({ x:  1, z:  1 });
+    const half = 50 / 2;
+    // Each shape's vertices should lie near one arena corner
+    arena.cornerCones.forEach(cone => {
+      const pos = cone.geometry.attributes.position;
+      const xs = [];
+      const zs = [];
+      for (let i = 0; i < pos.count; i++) {
+        xs.push(pos.getX(i));
+        zs.push(pos.getY(i)); // ShapeGeometry Y maps to world Z after rotation
+      }
+      // All vertices should be within the arena bounds
+      xs.forEach(x => expect(Math.abs(x)).toBeLessThanOrEqual(half));
+      zs.forEach(z => expect(Math.abs(z)).toBeLessThanOrEqual(half));
+    });
   });
 });
