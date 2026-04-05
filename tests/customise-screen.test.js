@@ -79,14 +79,51 @@ describe('CustomiseScreen', () => {
     });
   });
 
-  it('should highlight the selected item with a gold border', () => {
+  it('should start with no selection (null) in each section', () => {
+    const sel = screen.getSelections();
+    expect(sel.model).toBeNull();
+    expect(sel.wheels).toBeNull();
+    expect(sel.flipper).toBeNull();
+  });
+
+  it('should not highlight any item button by default', () => {
     screen.open();
     ['model', 'wheels', 'flipper'].forEach(key => {
       const section = container.querySelector(`.customise-section-${key}`);
-      const selectedBtn = section.querySelector('.customise-item-button[data-item-id="standard"]');
-      expect(selectedBtn).not.toBeNull();
-      expect(selectedBtn.style.borderColor).toBe('rgb(255, 215, 0)');
+      const buttons = section.querySelectorAll('.customise-item-button');
+      buttons.forEach(btn => {
+        expect(btn.style.borderColor).not.toBe('rgb(255, 215, 0)');
+      });
     });
+  });
+
+  it('should select item with gold border when clicked', () => {
+    screen.open();
+    const section = container.querySelector('.customise-section-model');
+    const btn = section.querySelector('.customise-item-button');
+    btn.click();
+    expect(btn.style.borderColor).toBe('rgb(255, 215, 0)');
+    expect(screen.getSelections().model).toBe(btn.dataset.itemId);
+  });
+
+  it('should deselect item when clicked again (toggle off)', () => {
+    screen.open();
+    const section = container.querySelector('.customise-section-model');
+    const btn = section.querySelector('.customise-item-button');
+    btn.click();
+    expect(btn.style.borderColor).toBe('rgb(255, 215, 0)');
+    btn.click();
+    expect(btn.style.borderColor).not.toBe('rgb(255, 215, 0)');
+    expect(screen.getSelections().model).toBeNull();
+  });
+
+  it('should set selection to null in getSelections when item is deselected', () => {
+    screen.open();
+    const section = container.querySelector('.customise-section-model');
+    const btn = section.querySelector('.customise-item-button');
+    btn.click();
+    btn.click();
+    expect(screen.getSelections().model).toBeNull();
   });
 
   it('should update selection and highlight when an item button is clicked', () => {
@@ -124,7 +161,7 @@ describe('CustomiseScreen', () => {
   it('should return a copy from getSelections (not internal reference)', () => {
     const sel = screen.getSelections();
     sel.model = 'something-else';
-    expect(screen.getSelections().model).toBe('standard');
+    expect(screen.getSelections().model).toBeNull();
   });
 
   it('should have a semi-transparent overlay background', () => {
