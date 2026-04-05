@@ -193,6 +193,13 @@ describe('Car wheels', () => {
     const car = createCar({ x: 0, z: 0 }, { wheelRadius: 1.0 });
     expect(car.groundY).toBeCloseTo(1.0 + 0.5);
   });
+
+  it('groundY should remain constant even when group.position.y is changed', () => {
+    const car = createCar({ x: 0, z: 0 }, { wheelRadius: 0.6 });
+    const originalGroundY = car.groundY;
+    car.group.position.y = -3;
+    expect(car.groundY).toBeCloseTo(originalGroundY);
+  });
 });
 
 describe('Car flipper', () => {

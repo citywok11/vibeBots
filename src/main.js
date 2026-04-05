@@ -183,6 +183,7 @@ function gameLoop(time) {
     sinkIntoPit(robot, dt);
     if (robot.group.position.y < PIT_RESET_DEPTH) {
       robot.reset();
+      robot.group.position.y = robot.groundY;
       robotFalling = false;
       robotRidingCover = false;
     }
