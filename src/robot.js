@@ -1,0 +1,109 @@
+import * as THREE from 'three';
+
+const RESTITUTION = 0.6;
+const DEFAULT_SPEED = 8;
+
+export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
+  const width = 2;
+  const height = 1;
+  const depth = 3;
+
+  const wheelRadius = options.wheelRadius || 0.6;
+  const groupY = wheelRadius + height / 2;
+
+  const group = new THREE.Group();
+  group.position.set(startPos.x, groupY, startPos.z);
+
+  // Body
+  const bodyGeometry = new THREE.BoxGeometry(width, height, depth);
+  const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x4444ff });
+  const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+  body.castShadow = true;
+  group.add(body);
+
+  // Wheels
+  const wheelWidth = wheelRadius * 0.5;
+  const wheelGeometry = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelWidth, 16);
+  const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x222222 });
+
+  const wheelOffsetX = width / 2 + wheelWidth / 2;
+  const wheelOffsetZ = depth / 2 - 0.4;
+  const wheelY = -height / 2;
+
+  const wheelPositions = [
+    { x: -wheelOffsetX, z: -wheelOffsetZ },
+    { x:  wheelOffsetX, z: -wheelOffsetZ },
+    { x: -wheelOffsetX, z:  wheelOffsetZ },
+    { x:  wheelOffsetX, z:  wheelOffsetZ },
+  ];
+
+  wheelPositions.forEach(pos => {
+    const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+    wheel.position.set(pos.x, wheelY, pos.z);
+    wheel.rotation.z = Math.PI / 2;
+    wheel.castShadow = true;
+    group.add(wheel);
+  });
+
+  const speed = options.speed ?? DEFAULT_SPEED;
+
+  // Give the robot a randomish diagonal initial velocity
+  const angle = options.angle ?? Math.PI / 4;
+  const velocity = {
+    x: Math.cos(angle) * speed,
+    z: Math.sin(angle) * speed,
+  };
+
+  function reset() {
+    group.position.set(startPos.x, groupY, startPos.z);
+    velocity.x = Math.cos(angle) * speed;
+    velocity.z = Math.sin(angle) * speed;
+  }
+
+  function bounceOffWalls(arenaSize) {
+    const half = arenaSize / 2;
+    const halfExtentX = width / 2;
+    const halfExtentZ = depth / 2;
+
+    const limitX = half - halfExtentX;
+    const limitZ = half - halfExtentZ;
+
+    let bounced = false;
+
+    if (group.position.x <= -limitX) {
+      group.position.x = -limitX;
+      velocity.x = Math.abs(velocity.x) * RESTITUTION;
+      bounced = true;
+    } else if (group.position.x >= limitX) {
+      group.position.x = limitX;
+      velocity.x = -Math.abs(velocity.x) * RESTITUTION;
+      bounced = true;
+    }
+
+    if (group.position.z <= -limitZ) {
+      group.position.z = -limitZ;
+      velocity.z = Math.abs(velocity.z) * RESTITUTION;
+      bounced = true;
+    } else if (group.position.z >= limitZ) {
+      group.position.z = limitZ;
+      velocity.z = -Math.abs(velocity.z) * RESTITUTION;
+      bounced = true;
+    }
+
+    return { bounced };
+  }
+
+  function update(dt) {
+    group.position.x += velocity.x * dt;
+    group.position.z += velocity.z * dt;
+  }
+
+  return {
+    group,
+    mesh: body,
+    get velocity() { return velocity; },
+    bounceOffWalls,
+    update,
+    reset,
+  };
+}

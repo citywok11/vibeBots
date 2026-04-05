@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createArena } from './arena.js';
 import { createCar } from './car.js';
+import { createRobot } from './robot.js';
 import { createInputManager } from './input.js';
 import { createMenu } from './menu.js';
 import { createKeyBindingsScreen } from './keybindings-screen.js';
@@ -41,6 +42,10 @@ scene.add(arena.group);
 // Car
 const car = createCar();
 scene.add(car.group);
+
+// Dummy robot opponent
+const robot = createRobot({ x: 10, z: -10 }, { angle: Math.PI * 1.25 });
+scene.add(robot.group);
 
 // Input handling
 const input = createInputManager();
@@ -85,6 +90,9 @@ function gameLoop(time) {
   car.update(dt);
   car.bounceOffWalls(ARENA_SIZE);
 
+  robot.update(dt);
+  robot.bounceOffWalls(ARENA_SIZE);
+
   // Camera follows car
   const carPos = car.group.position;
   camera.position.set(carPos.x, 30, carPos.z + 25);
@@ -96,6 +104,7 @@ function gameLoop(time) {
 
 function startLoop() {
   car.reset();
+  robot.reset();
   renderer.domElement.style.display = 'block';
   lastTime = performance.now();
   if (!rafId) rafId = requestAnimationFrame(gameLoop);

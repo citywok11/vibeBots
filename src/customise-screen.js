@@ -173,13 +173,18 @@ function createSection(sectionTitle, items, selectionKey, selections, visualFact
       }
     });
     btn.addEventListener('click', () => {
+      const alreadySelected = selections[selectionKey] === item.id;
       row.querySelectorAll('.customise-item-button').forEach(b => {
         b.style.borderColor = '#444';
         b.style.boxShadow = '';
       });
-      selections[selectionKey] = item.id;
-      btn.style.borderColor = '#ffd700';
-      btn.style.boxShadow = '0 0 12px rgba(255, 215, 0, 0.45)';
+      if (alreadySelected) {
+        selections[selectionKey] = null;
+      } else {
+        selections[selectionKey] = item.id;
+        btn.style.borderColor = '#ffd700';
+        btn.style.boxShadow = '0 0 12px rgba(255, 215, 0, 0.45)';
+      }
     });
 
     row.appendChild(btn);

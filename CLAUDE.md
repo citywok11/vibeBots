@@ -28,6 +28,7 @@ All game logic is in `src/`, tests in `tests/`, feature docs in `docs/`. There i
 main.js (entry point, game loop, screen orchestration)
   ├── arena.js              — static 3D arena (floor + 4 walls)
   ├── car.js                — player car (body, wheels, flipper, physics)
+  ├── robot.js              — dummy robot opponent (constant velocity, wall bounce)
   ├── input.js              — action-to-key binding system
   ├── home-screen.js        — title screen (Play, Options, Exit)
   ├── options-screen.js     — options menu (Key Bindings, Back)
@@ -81,9 +82,10 @@ In-Game (Escape)
 - Square arena with wall bounce physics (restitution + friction)
 - Pause menu (Escape) with key rebinding and exit to home
 - Fully configurable key bindings
+- Dummy robot opponent (bounces around arena)
 
 ### Planned features (not yet built)
-- Enemy robots / AI opponents
+- Enemy robots / AI opponents (currently only a passive dummy exists)
 - Roguelike progression (upgrades between rounds)
 - Different weapon types beyond flipper
 - Car customization (body, wheels, weapons)
