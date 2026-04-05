@@ -80,7 +80,7 @@ describe('CustomiseScreen', () => {
 
   it('should show at least one item button in each section', () => {
     screen.open();
-    ['model', 'wheels', 'flipper', 'flamethrower'].forEach(key => {
+    ['model', 'wheels', 'flipper', 'flamethrower', 'machineGun'].forEach(key => {
       const section = container.querySelector(`.customise-section-${key}`);
       const buttons = section.querySelectorAll('.customise-item-button');
       expect(buttons.length).toBeGreaterThan(0);
@@ -99,7 +99,7 @@ describe('CustomiseScreen', () => {
     const modelSection = container.querySelector('.customise-section-model');
     const modelBtn = modelSection.querySelector('.customise-item-button');
     expect(modelBtn.style.borderColor).toBe('rgb(255, 215, 0)');
-    ['wheels', 'flipper', 'flamethrower'].forEach(key => {
+    ['wheels', 'flipper', 'flamethrower', 'machineGun'].forEach(key => {
       const section = container.querySelector(`.customise-section-${key}`);
       const buttons = section.querySelectorAll('.customise-item-button');
       buttons.forEach(btn => {
@@ -178,6 +178,7 @@ describe('CustomiseScreen', () => {
     expect(sel).toHaveProperty('wheels');
     expect(sel).toHaveProperty('flipper');
     expect(sel).toHaveProperty('flamethrower');
+    expect(sel).toHaveProperty('machineGun');
   });
 
   it('should return a copy from getSelections (not internal reference)', () => {
@@ -330,5 +331,44 @@ describe('CustomiseScreen', () => {
     btn.click();
     btn.click();
     expect(btn.style.borderColor).not.toBe('rgb(255, 215, 0)');
+  });
+
+  it('should have a MACHINE GUN section', () => {
+    screen.open();
+    const section = container.querySelector('.customise-section-machineGun');
+    expect(section).not.toBeNull();
+    const heading = section.querySelector('.customise-section-title');
+    expect(heading.textContent).toBe('MACHINE GUN');
+  });
+
+  it('should start with machineGun unselected', () => {
+    const sel = screen.getSelections();
+    expect(sel.machineGun).toBeNull();
+  });
+
+  it('should select machine gun with gold border when clicked', () => {
+    screen.open();
+    const section = container.querySelector('.customise-section-machineGun');
+    const btn = section.querySelector('.customise-item-button');
+    btn.click();
+    expect(btn.style.borderColor).toBe('rgb(255, 215, 0)');
+    expect(screen.getSelections().machineGun).toBe(btn.dataset.itemId);
+  });
+
+  it('should deselect machine gun when clicked again (toggle off)', () => {
+    screen.open();
+    const section = container.querySelector('.customise-section-machineGun');
+    const btn = section.querySelector('.customise-item-button');
+    btn.click();
+    btn.click();
+    expect(btn.style.borderColor).not.toBe('rgb(255, 215, 0)');
+    expect(screen.getSelections().machineGun).toBeNull();
+  });
+
+  it('machine gun section should contain a button for standard', () => {
+    screen.open();
+    const section = container.querySelector('.customise-section-machineGun');
+    const ids = Array.from(section.querySelectorAll('.customise-item-button')).map(b => b.dataset.itemId);
+    expect(ids).toContain('standard');
   });
 });

@@ -5,6 +5,7 @@ export const DEFAULT_BINDINGS = {
   turnRight: ['KeyD', 'ArrowRight'],
   flipper: ['Space'],
   flamethrower: ['KeyE'],
+  machineGun: ['KeyQ'],
 };
 
 export function createInputManager(initialBindings) {

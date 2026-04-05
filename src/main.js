@@ -146,6 +146,11 @@ function gameLoop(time) {
   } else {
     car.deactivateFlamethrower();
   }
+  if (input.isPressed('machineGun')) {
+    car.activateMachineGun();
+  } else {
+    car.deactivateMachineGun();
+  }
 
   car.update(dt);
   car.bounceOffWalls(ARENA_SIZE);
