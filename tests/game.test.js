@@ -15,13 +15,14 @@ function makeHomeScreen() {
 
 function makeMenu() {
   let open = false;
-  let exitCallback = null;
+  let backToMainMenuCallback = null;
   return {
     isOpen: () => open,
     open: () => { open = true; },
     close: () => { open = false; },
-    onExit: (cb) => { exitCallback = cb; },
-    triggerExit: () => { if (exitCallback) exitCallback(); },
+    toggle: () => { open = !open; },
+    onBackToMainMenu: (cb) => { backToMainMenuCallback = cb; },
+    triggerBackToMainMenu: () => { if (backToMainMenuCallback) backToMainMenuCallback(); },
   };
 }
 
@@ -85,17 +86,24 @@ describe('createGameController', () => {
     expect(menu.isOpen()).toBe(false);
   });
 
-  it('handleEscape() stops the game and opens home screen when running', () => {
+  it('handleEscape() opens the pause menu when running', () => {
     controller.startGame();
     controller.handleEscape();
-    expect(controller.isRunning()).toBe(false);
-    expect(homeScreen.isOpen()).toBe(true);
+    expect(menu.isOpen()).toBe(true);
+    expect(controller.isRunning()).toBe(true);
   });
 
-  it('handleEscape() calls onStop when running', () => {
+  it('handleEscape() toggles the pause menu closed when already open', () => {
+    controller.startGame();
+    menu.open();
+    controller.handleEscape();
+    expect(menu.isOpen()).toBe(false);
+  });
+
+  it('handleEscape() does not call onStop', () => {
     controller.startGame();
     controller.handleEscape();
-    expect(onStop).toHaveBeenCalledOnce();
+    expect(onStop).not.toHaveBeenCalled();
   });
 
   it('handleEscape() does nothing when not running', () => {
@@ -113,9 +121,9 @@ describe('createGameController', () => {
     expect(onStart).toHaveBeenCalledOnce();
   });
 
-  it('menu Exit button triggers stopGame()', () => {
+  it('menu Back to main menu button triggers stopGame()', () => {
     controller.startGame();
-    menu.triggerExit();
+    menu.triggerBackToMainMenu();
     expect(controller.isRunning()).toBe(false);
     expect(homeScreen.isOpen()).toBe(true);
     expect(onStop).toHaveBeenCalledOnce();

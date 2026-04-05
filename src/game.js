@@ -19,11 +19,11 @@ export function createGameController({ homeScreen, menu, onStart, onStop }) {
   }
 
   function handleEscape() {
-    if (running) stopGame();
+    if (running) menu.toggle();
   }
 
   homeScreen.onPlay(() => startGame());
-  menu.onExit(() => stopGame());
+  menu.onBackToMainMenu(() => stopGame());
 
   return { startGame, stopGame, isRunning, handleEscape };
 }

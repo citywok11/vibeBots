@@ -53,52 +53,54 @@ describe('Menu', () => {
     expect(title.textContent).toBe('PAUSED');
   });
 
-  it('should have a Key Bindings button', () => {
+  it('should have a Customise button', () => {
     menu.open();
     const buttons = container.querySelectorAll('.menu-button');
     const labels = Array.from(buttons).map(b => b.textContent);
-    expect(labels).toContain('Key Bindings');
+    expect(labels).toContain('Customise');
   });
 
-  it('should have a Resume button', () => {
+  it('should have a Back to main menu button', () => {
     menu.open();
     const buttons = container.querySelectorAll('.menu-button');
     const labels = Array.from(buttons).map(b => b.textContent);
-    expect(labels).toContain('Resume');
+    expect(labels).toContain('Back to main menu');
   });
 
-  it('should close the menu when Resume is clicked', () => {
+  it('should have an Options button', () => {
     menu.open();
     const buttons = container.querySelectorAll('.menu-button');
-    const resumeBtn = Array.from(buttons).find(b => b.textContent === 'Resume');
-    resumeBtn.click();
-    expect(menu.isOpen()).toBe(false);
+    const labels = Array.from(buttons).map(b => b.textContent);
+    expect(labels).toContain('Options');
   });
 
-  it('should call onKeyBindings callback when Key Bindings is clicked', () => {
+  it('should call onCustomise callback when Customise is clicked', () => {
     let called = false;
-    menu.onKeyBindings(() => { called = true; });
+    menu.onCustomise(() => { called = true; });
     menu.open();
     const buttons = container.querySelectorAll('.menu-button');
-    const kbBtn = Array.from(buttons).find(b => b.textContent === 'Key Bindings');
-    kbBtn.click();
+    const customiseBtn = Array.from(buttons).find(b => b.textContent === 'Customise');
+    customiseBtn.click();
     expect(called).toBe(true);
   });
 
-  it('should have an Exit button', () => {
+  it('should call onBackToMainMenu callback when Back to main menu is clicked', () => {
+    let called = false;
+    menu.onBackToMainMenu(() => { called = true; });
     menu.open();
     const buttons = container.querySelectorAll('.menu-button');
-    const labels = Array.from(buttons).map(b => b.textContent);
-    expect(labels).toContain('Exit');
+    const backBtn = Array.from(buttons).find(b => b.textContent === 'Back to main menu');
+    backBtn.click();
+    expect(called).toBe(true);
   });
 
-  it('should call onExit callback when Exit is clicked', () => {
+  it('should call onOptions callback when Options is clicked', () => {
     let called = false;
-    menu.onExit(() => { called = true; });
+    menu.onOptions(() => { called = true; });
     menu.open();
     const buttons = container.querySelectorAll('.menu-button');
-    const exitBtn = Array.from(buttons).find(b => b.textContent === 'Exit');
-    exitBtn.click();
+    const optionsBtn = Array.from(buttons).find(b => b.textContent === 'Options');
+    optionsBtn.click();
     expect(called).toBe(true);
   });
 
