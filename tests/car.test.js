@@ -1106,11 +1106,11 @@ describe('Car flipper variant physics', () => {
     expect(car.flipperDepth).toBeLessThan(stdDepth);
   });
 
-  it('heavy flipper maxAngle should differ from standard maxAngle', () => {
+  it('heavy flipper maxAngle should be greater than standard maxAngle', () => {
     const car = createCar();
     const stdAngle = car.flipperMaxAngle;
     car.applyCustomisation({ flipper: 'heavy' });
-    expect(car.flipperMaxAngle).not.toBeCloseTo(stdAngle, 3);
+    expect(car.flipperMaxAngle).toBeGreaterThan(stdAngle);
   });
 
   it('light flipper should animate faster than standard (higher upSpeed)', () => {

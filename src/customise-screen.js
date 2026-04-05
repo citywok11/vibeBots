@@ -21,9 +21,9 @@ function createModelVisual(item) {
       w.style.cssText = `position: absolute; top: 14px; left: ${left}px; width: 9px; height: 9px; background: #222; border-radius: 50%; border: 1px solid #555;`;
       wrap.appendChild(w);
     });
-    ['48', '48'].forEach((top, i) => {
+    [{ top: 48, left: 7 }, { top: 48, left: 53 }].forEach(pos => {
       const w = document.createElement('div');
-      w.style.cssText = `position: absolute; top: ${top}px; left: ${i === 0 ? '7' : '53'}px; width: 9px; height: 9px; background: #222; border-radius: 50%; border: 1px solid #555;`;
+      w.style.cssText = `position: absolute; top: ${pos.top}px; left: ${pos.left}px; width: 9px; height: 9px; background: #222; border-radius: 50%; border: 1px solid #555;`;
       wrap.appendChild(w);
     });
     const body = document.createElement('div');
@@ -36,9 +36,9 @@ function createModelVisual(item) {
       w.style.cssText = `position: absolute; top: 8px; left: ${left}px; width: 10px; height: 10px; background: #222; border-radius: 50%; border: 1px solid #555;`;
       wrap.appendChild(w);
     });
-    ['50', '50'].forEach((top, i) => {
+    [{ top: 50, left: 5 }, { top: 50, left: 55 }].forEach(pos => {
       const w = document.createElement('div');
-      w.style.cssText = `position: absolute; top: ${top}px; left: ${i === 0 ? '5' : '55'}px; width: 10px; height: 10px; background: #222; border-radius: 50%; border: 1px solid #555;`;
+      w.style.cssText = `position: absolute; top: ${pos.top}px; left: ${pos.left}px; width: 10px; height: 10px; background: #222; border-radius: 50%; border: 1px solid #555;`;
       wrap.appendChild(w);
     });
     const body = document.createElement('div');

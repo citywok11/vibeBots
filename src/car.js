@@ -153,8 +153,14 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   }
 
   // --- Flipper meshes (one per FLIPPER_CATALOGUE entry) ---
+  function flipperThickness(depth) {
+    if (depth < 1) return 0.1;
+    if (depth < 1.5) return 0.15;
+    return 0.25;
+  }
+
   function buildFlipperMesh(spec) {
-    const geo = new THREE.BoxGeometry(width, spec.depth < 1 ? 0.1 : spec.depth < 1.5 ? 0.15 : 0.25, spec.depth);
+    const geo = new THREE.BoxGeometry(width, flipperThickness(spec.depth), spec.depth);
     geo.translate(0, 0, -spec.depth / 2);
     const mat = new THREE.MeshStandardMaterial({ color: spec.color });
     const mesh = new THREE.Mesh(geo, mat);
