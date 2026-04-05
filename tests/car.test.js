@@ -583,13 +583,22 @@ describe('Car flamethrower', () => {
     expect(car.flame.visible).toBe(true);
   });
 
-  it('should automatically deactivate after the flame duration expires', () => {
+  it('should stay active while activateFlamethrower is held (channel behaviour)', () => {
     const car = createCar();
     car.activateFlamethrower();
-    // Simulate enough time for the flame to expire (0.5s duration)
     for (let i = 0; i < 50; i++) {
       car.update(0.02);
     }
+    expect(car.flamethrowerActive).toBe(true);
+    expect(car.flame.visible).toBe(true);
+  });
+
+  it('should deactivate when deactivateFlamethrower() is called', () => {
+    const car = createCar();
+    car.activateFlamethrower();
+    car.update(0.016);
+    car.deactivateFlamethrower();
+    car.update(0.016);
     expect(car.flamethrowerActive).toBe(false);
     expect(car.flame.visible).toBe(false);
   });
@@ -601,5 +610,51 @@ describe('Car flamethrower', () => {
     car.reset();
     expect(car.flamethrowerActive).toBe(false);
     expect(car.flame.visible).toBe(false);
+  });
+
+  it('should have flame particles attached to the car group', () => {
+    const car = createCar();
+    expect(car.particles).toBeDefined();
+    expect(car.particles.length).toBeGreaterThan(0);
+    car.particles.forEach(p => {
+      expect(car.group.children).toContain(p.mesh);
+    });
+  });
+
+  it('should hide particles when flamethrower is inactive', () => {
+    const car = createCar();
+    car.update(0.016);
+    car.particles.forEach(p => {
+      expect(p.mesh.visible).toBe(false);
+    });
+  });
+
+  it('should show particles when flamethrower is active', () => {
+    const car = createCar();
+    car.activateFlamethrower();
+    car.update(0.1);
+    const anyVisible = car.particles.some(p => p.mesh.visible);
+    expect(anyVisible).toBe(true);
+  });
+
+  it('should hide particles after flamethrower is deactivated', () => {
+    const car = createCar();
+    car.activateFlamethrower();
+    car.update(0.1);
+    car.deactivateFlamethrower();
+    car.update(0.016);
+    car.particles.forEach(p => {
+      expect(p.mesh.visible).toBe(false);
+    });
+  });
+
+  it('should reset particle visibility on reset()', () => {
+    const car = createCar();
+    car.activateFlamethrower();
+    car.update(0.1);
+    car.reset();
+    car.particles.forEach(p => {
+      expect(p.mesh.visible).toBe(false);
+    });
   });
 });
