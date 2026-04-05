@@ -130,6 +130,7 @@ function gameLoop(time) {
   car.update(dt);
   car.bounceOffWalls(ARENA_SIZE);
 
+  robot.updateAI(dt, car.group.position);
   robot.update(dt);
   robot.bounceOffWalls(ARENA_SIZE);
 
