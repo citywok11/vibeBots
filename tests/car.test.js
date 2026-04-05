@@ -410,13 +410,15 @@ describe('Car velocity and wall collision', () => {
 describe('Car sub-component collision detection (wheels and flipper)', () => {
   // Default geometry constants (mirrored from car.js for clarity in tests)
   // width=2, depth=3, wheelRadius=0.6, wheelWidth=0.3, flipperDepth=1.2
-  // effectiveHalfWidth = width/2 + wheelWidth = 1 + 0.3 = 1.3
-  // effectiveHalfDepth (flat)  = depth/2 + flipperDepth*cos(0)   = 1.5 + 1.2 = 2.7
-  // effectiveHalfDepth (60deg) = depth/2 + flipperDepth*cos(π/3) = 1.5 + 0.6 = 2.1
-  // With arenaSize=50 (half=25):
-  //   wheel  limitX       = 25 - 1.3 = 23.7
-  //   flipper limitZ flat = 25 - 2.7 = 22.3
-  //   flipper limitZ 60°  = 25 - 2.1 = 22.9
+  // halfW          = width/2 + wheelWidth = 1 + 0.3 = 1.3
+  // frontHalfDepth (flat)  = depth/2 + flipperDepth*cos(0)   = 1.5 + 1.2 = 2.7
+  // frontHalfDepth (60deg) = depth/2 + flipperDepth*cos(π/3) = 1.5 + 0.6 = 2.1
+  // backHalfDepth          = depth/2 = 1.5   (no flipper at the back)
+  // With arenaSize=50 (half=25) at rotation=0:
+  //   wheel  limitX            = 25 - 1.3 = 23.7
+  //   front (flipper) limitZ   = 25 - 2.7 = 22.3  (north wall, flipper faces north)
+  //   front (60°) limitZ       = 25 - 2.1 = 22.9
+  //   back  limitZ             = 25 - 1.5 = 23.5  (south wall, back faces south)
 
   describe('Wheel collision', () => {
     it('should bounce off the east wall when the wheel extends into it even though the body centre is clear', () => {
@@ -456,6 +458,21 @@ describe('Car sub-component collision detection (wheels and flipper)', () => {
     });
   });
 
+  describe('Asymmetric front/back collision (flipper only at front)', () => {
+    // The car is NOT symmetric in depth: the flipper only projects from the front.
+    // frontHalfDepth (flat) = depth/2 + flipperDepth = 1.5 + 1.2 = 2.7
+    // backHalfDepth          = depth/2               = 1.5
+    // With arenaSize=50 (half=25):
+    //   front limit (toward north wall) = 25 - 2.7 = 22.3  (flipper tip touches wall)
+    //   back  limit (toward south wall) = 25 - 1.5 = 23.5  (back body edge touches wall)
+    const CAR_DEPTH = 3; // matches depth constant in car.js
+
+    it('should not bounce off the south wall when facing north and the back end is clear', () => {
+      // Car at z=22.5, rotation=0 (facing north, flipper at front/north, back at south).
+      // Back of body at 22.5 + 1.5 = 24.0 — safely inside south wall at 25.
+      // Old (buggy) code used symmetric depth 2.7 → limit = 22.3 → 22.5 > 22.3 → false bounce.
+      const arenaSize = 50;
+      const car = createCar({ x: 0, z: 22.5 });
   describe('Flipper deselected collision', () => {
     // When flipper is deselected, effectiveHalfDepth = depth/2 = 1.5 only (no flipper contribution)
     // With arenaSize=50 (half=25): limitZ = 25 - 1.5 = 23.5
@@ -469,6 +486,10 @@ describe('Car sub-component collision detection (wheels and flipper)', () => {
       expect(result.bounced).toBe(false);
     });
 
+    it('should bounce off the south wall when facing north and the back end reaches the wall', () => {
+      // Car at z=23.6, rotation=0. Back at 23.6 + 1.5 = 25.1 — past south wall.
+      const arenaSize = 50;
+      const car = createCar({ x: 0, z: 23.6 });
     it('should bounce using body-only depth when flipper is deselected', () => {
       // At z=-23.8: body limitZ = 25 - 1.5 = 23.5 → should bounce even without flipper
       const arenaSize = 50;
@@ -478,6 +499,36 @@ describe('Car sub-component collision detection (wheels and flipper)', () => {
       expect(result.bounced).toBe(true);
     });
 
+    it('should clamp south wall collision to back half-depth when facing north', () => {
+      // Car launched well past south wall (rotation=0, back facing south).
+      // After clamping, the back edge (car.z + backHalfDepth) should sit at the wall.
+      const arenaSize = 50;
+      const half = arenaSize / 2;
+      const backHalfDepth = CAR_DEPTH / 2;
+      const car = createCar({ x: 0, z: 40 });
+      car.bounceOffWalls(arenaSize);
+      expect(car.group.position.z + backHalfDepth).toBeCloseTo(half, 5);
+    });
+
+    it('should not bounce off the north wall when facing south and the back end is clear', () => {
+      // Car at z=-22.5, rotation=π (facing south, back faces north).
+      // Back of body at -22.5 - 1.5 = -24.0 — inside north wall at -25.
+      const arenaSize = 50;
+      const car = createCar({ x: 0, z: -22.5 });
+      car.turnLeft(Math.PI); // rotation = π → facing south, back toward north
+      const result = car.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(false);
+    });
+
+    it('should clamp north wall collision to back half-depth when facing south', () => {
+      const arenaSize = 50;
+      const half = arenaSize / 2;
+      const backHalfDepth = CAR_DEPTH / 2;
+      const car = createCar({ x: 0, z: -40 });
+      car.turnLeft(Math.PI);
+      car.bounceOffWalls(arenaSize);
+      // Back of car (at car.z - backHalfDepth when rotation=π) sits at north wall
+      expect(car.group.position.z - backHalfDepth).toBeCloseTo(-half, 5);
     it('should restore flipper collision depth when flipper is re-selected', () => {
       // At z=-23: no bounce when flipper absent, but should bounce once flipper is re-selected
       const arenaSize = 50;

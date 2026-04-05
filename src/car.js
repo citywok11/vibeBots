@@ -210,6 +210,32 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     const half = arenaSize / 2;
     let bounced = false;
 
+    const cosR = Math.cos(rotation);
+    const sinR = Math.sin(rotation);
+
+    // The car is asymmetric in depth: the flipper projects only from the front.
+    // Use the four corners of the effective bounding shape to compute the true
+    // axis-aligned extents at any rotation, rather than a symmetric rectangle.
+    //   halfW          = width/2 + wheelWidth (wheels extend past each side)
+    //   frontHalfDepth = depth/2 + flipperDepth*cos(angle) (flipper at front)
+    //   backHalfDepth  = depth/2 (back of body, no flipper)
+    const halfW = width / 2 + wheelWidth;
+    const frontHalfDepth = depth / 2 + flipperDepth * Math.cos(flipperAngle);
+    const backHalfDepth = depth / 2;
+
+    let maxX = -Infinity, minX = Infinity;
+    let maxZ = -Infinity, minZ = Infinity;
+
+    for (const lz of [-frontHalfDepth, backHalfDepth]) {
+      for (const lx of [-halfW, halfW]) {
+        const wx = cosR * lx + sinR * lz;
+        const wz = -sinR * lx + cosR * lz;
+        if (wx > maxX) maxX = wx;
+        if (wx < minX) minX = wx;
+        if (wz > maxZ) maxZ = wz;
+        if (wz < minZ) minZ = wz;
+      }
+    }
     const cosR = Math.abs(Math.cos(rotation));
     const sinR = Math.abs(Math.sin(rotation));
 
@@ -225,22 +251,22 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     const limitX = half - halfExtentX;
     const limitZ = half - halfExtentZ;
 
-    if (group.position.x <= -limitX) {
-      group.position.x = -limitX;
+    if (group.position.x + minX <= -half) {
+      group.position.x = -half - minX;
       velocity.x = Math.abs(velocity.x) * RESTITUTION;
       bounced = true;
-    } else if (group.position.x >= limitX) {
-      group.position.x = limitX;
+    } else if (group.position.x + maxX >= half) {
+      group.position.x = half - maxX;
       velocity.x = -Math.abs(velocity.x) * RESTITUTION;
       bounced = true;
     }
 
-    if (group.position.z <= -limitZ) {
-      group.position.z = -limitZ;
+    if (group.position.z + minZ <= -half) {
+      group.position.z = -half - minZ;
       velocity.z = Math.abs(velocity.z) * RESTITUTION;
       bounced = true;
-    } else if (group.position.z >= limitZ) {
-      group.position.z = limitZ;
+    } else if (group.position.z + maxZ >= half) {
+      group.position.z = half - maxZ;
       velocity.z = -Math.abs(velocity.z) * RESTITUTION;
       bounced = true;
     }
