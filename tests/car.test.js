@@ -456,6 +456,40 @@ describe('Car sub-component collision detection (wheels and flipper)', () => {
     });
   });
 
+  describe('Flipper deselected collision', () => {
+    // When flipper is deselected, effectiveHalfDepth = depth/2 = 1.5 only (no flipper contribution)
+    // With arenaSize=50 (half=25): limitZ = 25 - 1.5 = 23.5
+
+    it('should not include flipper depth when flipper is deselected', () => {
+      // At z=-23: with flipper → bounces (limitZ=22.3); without flipper → no bounce (limitZ=23.5)
+      const arenaSize = 50;
+      const car = createCar({ x: 0, z: -23 });
+      car.applyCustomisation({ flipper: null });
+      const result = car.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(false);
+    });
+
+    it('should bounce using body-only depth when flipper is deselected', () => {
+      // At z=-23.8: body limitZ = 25 - 1.5 = 23.5 → should bounce even without flipper
+      const arenaSize = 50;
+      const car = createCar({ x: 0, z: -23.8 });
+      car.applyCustomisation({ flipper: null });
+      const result = car.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(true);
+    });
+
+    it('should restore flipper collision depth when flipper is re-selected', () => {
+      // At z=-23: no bounce when flipper absent, but should bounce once flipper is re-selected
+      const arenaSize = 50;
+      const car = createCar({ x: 0, z: -23 });
+      car.applyCustomisation({ flipper: null });
+      expect(car.bounceOffWalls(arenaSize).bounced).toBe(false);
+      car.group.position.z = -23; // reset position
+      car.applyCustomisation({ flipper: 'standard' });
+      expect(car.bounceOffWalls(arenaSize).bounced).toBe(true);
+    });
+  });
+
   describe('Flipper collision', () => {
     it('should bounce off the north wall when the flat flipper extends into it even though the body centre is clear', () => {
       // body-only limitZ = 25 - 1.5 = 23.5; flipper limitZ (flat) = 25 - 2.7 = 22.3
@@ -784,5 +818,25 @@ describe('Car applyCustomisation()', () => {
     car.applyCustomisation({ wheels: 'standard' });
     car.accelerate(10);
     expect(Math.abs(car.velocity.x) + Math.abs(car.velocity.z)).toBeGreaterThan(0);
+  });
+
+  it('should prevent activateFlipper when flipper is deselected', () => {
+    const car = createCar();
+    car.applyCustomisation({ flipper: null });
+    car.activateFlipper();
+    car.update(0.5);
+    expect(car.flipperAngle).toBe(0);
+  });
+
+  it('should allow activateFlipper again when flipper is re-selected after being deselected', () => {
+    const car = createCar();
+    car.applyCustomisation({ flipper: null });
+    car.activateFlipper();
+    car.update(0.5);
+    expect(car.flipperAngle).toBe(0);
+    car.applyCustomisation({ flipper: 'standard' });
+    car.activateFlipper();
+    car.update(0.5);
+    expect(car.flipperAngle).toBeGreaterThan(0);
   });
 });

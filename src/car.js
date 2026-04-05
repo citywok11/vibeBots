@@ -128,6 +128,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   let flipperActive = false;
 
   function activateFlipper() {
+    if (!hasFlipper) return;
     flipperActive = true;
   }
 
@@ -136,6 +137,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   const mass = options.mass ?? 1;
   const collisionRadius = Math.sqrt((width / 2) ** 2 + (depth / 2) ** 2);
   let hasWheels = true;
+  let hasFlipper = true;
 
   function applyCustomisation(selections = {}) {
     if ('model' in selections) {
@@ -146,7 +148,8 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
       wheels.forEach(w => { w.visible = hasWheels; });
     }
     if ('flipper' in selections) {
-      flipper.visible = selections.flipper !== null;
+      hasFlipper = selections.flipper !== null;
+      flipper.visible = hasFlipper;
     }
   }
 
@@ -199,7 +202,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     //   - wheels extend wheelWidth beyond each side of the body
     //   - flipper projects flipperDepth * cos(angle) beyond the front of the body
     const effectiveHalfWidth = width / 2 + wheelWidth;
-    const effectiveHalfDepth = depth / 2 + flipperDepth * Math.cos(flipperAngle);
+    const effectiveHalfDepth = depth / 2 + (hasFlipper ? flipperDepth * Math.cos(flipperAngle) : 0);
 
     const halfExtentX = cosR * effectiveHalfWidth + sinR * effectiveHalfDepth;
     const halfExtentZ = sinR * effectiveHalfWidth + cosR * effectiveHalfDepth;
