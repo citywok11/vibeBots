@@ -6,6 +6,7 @@ import { createMenu } from './menu.js';
 import { createKeyBindingsScreen } from './keybindings-screen.js';
 import { createHomeScreen } from './home-screen.js';
 import { createOptionsScreen } from './options-screen.js';
+import { createExitScreen } from './exit-screen.js';
 import { createGameController } from './game.js';
 
 // Scene setup
@@ -47,6 +48,7 @@ window.addEventListener('keyup', (e) => input.handleKeyUp(e.code));
 // Menu & Key Bindings
 const homeScreen = createHomeScreen(document.body);
 const optionsScreen = createOptionsScreen(document.body);
+const exitScreen = createExitScreen(document.body);
 const menu = createMenu(document.body);
 const keyBindingsScreen = createKeyBindingsScreen(document.body, input);
 
@@ -101,17 +103,34 @@ const game = createGameController({ homeScreen, menu, onStart: startLoop, onStop
 // Show home screen on startup
 homeScreen.open();
 
+// Screen navigation callbacks
+let keyBindingsReturnTo = null;
+
 homeScreen.onOptions(() => {
   homeScreen.close();
   optionsScreen.open();
 });
 
 homeScreen.onExit(() => {
-  window.close();
+  homeScreen.close();
+  exitScreen.open();
 });
 
-// Options screen callbacks
-let keyBindingsReturnTo = null;
+// Exit screen callbacks
+exitScreen.onSandboxMode(() => {
+  exitScreen.close();
+  game.startGame();
+});
+
+exitScreen.onOptions(() => {
+  exitScreen.close();
+  keyBindingsReturnTo = () => exitScreen.open();
+  optionsScreen.open();
+});
+
+exitScreen.onExitGame(() => {
+  window.close();
+});
 
 keyBindingsScreen.onClose(() => {
   if (keyBindingsReturnTo) keyBindingsReturnTo();
@@ -137,10 +156,16 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-menu.onKeyBindings(() => {
+menu.onCustomise(() => {
   menu.close();
   keyBindingsReturnTo = () => menu.open();
   keyBindingsScreen.open();
+});
+
+menu.onOptions(() => {
+  menu.close();
+  keyBindingsReturnTo = () => menu.open();
+  optionsScreen.open();
 });
 
 // Handle resize

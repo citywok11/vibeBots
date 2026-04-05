@@ -1,27 +1,26 @@
-export function createMenu(container) {
+export function createExitScreen(container) {
   let open = false;
-  let customiseCallback = null;
-  let backToMainMenuCallback = null;
+  let sandboxModeCallback = null;
   let optionsCallback = null;
+  let exitGameCallback = null;
 
   // Overlay
   const overlay = document.createElement('div');
-  overlay.className = 'menu-overlay';
+  overlay.className = 'exit-screen-overlay';
   overlay.style.cssText = `
     display: none;
     position: fixed;
     top: 0; left: 0;
     width: 100%; height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
-    z-index: 100;
-    display: none;
+    background-color: rgba(0, 0, 0, 0.85);
+    z-index: 300;
     justify-content: center;
     align-items: center;
   `;
 
   // Panel
   const panel = document.createElement('div');
-  panel.className = 'menu-panel';
+  panel.className = 'exit-screen-panel';
   panel.style.cssText = `
     background: #1a1a2e;
     border: 2px solid #555;
@@ -35,8 +34,8 @@ export function createMenu(container) {
 
   // Title
   const title = document.createElement('h1');
-  title.className = 'menu-title';
-  title.textContent = 'PAUSED';
+  title.className = 'exit-screen-title';
+  title.textContent = 'PLAY';
   title.style.cssText = `
     margin: 0 0 30px 0;
     font-size: 28px;
@@ -48,7 +47,7 @@ export function createMenu(container) {
   // Button helper
   function createButton(label) {
     const btn = document.createElement('button');
-    btn.className = 'menu-button';
+    btn.className = 'exit-screen-button';
     btn.textContent = label;
     btn.style.cssText = `
       display: block;
@@ -63,35 +62,25 @@ export function createMenu(container) {
       border-radius: 4px;
       cursor: pointer;
     `;
-    btn.addEventListener('mouseenter', () => {
-      btn.style.background = '#ff4444';
-    });
-    btn.addEventListener('mouseleave', () => {
-      btn.style.background = '#333';
-    });
+    btn.addEventListener('mouseenter', () => { btn.style.background = '#ff4444'; });
+    btn.addEventListener('mouseleave', () => { btn.style.background = '#333'; });
     return btn;
   }
 
-  // Customise button
-  const customiseBtn = createButton('Customise');
-  customiseBtn.addEventListener('click', () => {
-    if (customiseCallback) customiseCallback();
-  });
-  panel.appendChild(customiseBtn);
-
-  // Back to main menu button
-  const backToMainMenuBtn = createButton('Back to main menu');
-  backToMainMenuBtn.addEventListener('click', () => {
-    if (backToMainMenuCallback) backToMainMenuCallback();
-  });
-  panel.appendChild(backToMainMenuBtn);
+  // Sandbox mode button
+  const sandboxModeBtn = createButton('Sandbox mode');
+  sandboxModeBtn.addEventListener('click', () => { if (sandboxModeCallback) sandboxModeCallback(); });
+  panel.appendChild(sandboxModeBtn);
 
   // Options button
   const optionsBtn = createButton('Options');
-  optionsBtn.addEventListener('click', () => {
-    if (optionsCallback) optionsCallback();
-  });
+  optionsBtn.addEventListener('click', () => { if (optionsCallback) optionsCallback(); });
   panel.appendChild(optionsBtn);
+
+  // Exit game button
+  const exitGameBtn = createButton('Exit game');
+  exitGameBtn.addEventListener('click', () => { if (exitGameCallback) exitGameCallback(); });
+  panel.appendChild(exitGameBtn);
 
   overlay.appendChild(panel);
   container.appendChild(overlay);
@@ -100,40 +89,26 @@ export function createMenu(container) {
     return open;
   }
 
-  function openMenu() {
+  function openScreen() {
     open = true;
     overlay.style.display = 'flex';
   }
 
-  function close() {
+  function closeScreen() {
     open = false;
     overlay.style.display = 'none';
   }
 
-  function toggle() {
-    if (open) close();
-    else openMenu();
-  }
-
-  function onCustomise(cb) {
-    customiseCallback = cb;
-  }
-
-  function onBackToMainMenu(cb) {
-    backToMainMenuCallback = cb;
-  }
-
-  function onOptions(cb) {
-    optionsCallback = cb;
-  }
+  function onSandboxMode(cb) { sandboxModeCallback = cb; }
+  function onOptions(cb) { optionsCallback = cb; }
+  function onExitGame(cb) { exitGameCallback = cb; }
 
   return {
     isOpen,
-    open: openMenu,
-    close,
-    toggle,
-    onCustomise,
-    onBackToMainMenu,
+    open: openScreen,
+    close: closeScreen,
+    onSandboxMode,
     onOptions,
+    onExitGame,
   };
 }
