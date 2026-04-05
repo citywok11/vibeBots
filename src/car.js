@@ -3,10 +3,15 @@ import * as THREE from 'three';
 const RESTITUTION = 0.6;
 const FRICTION = 0.98;
 
+export const CAR_BODY_WIDTH = 2;
+export const CAR_BODY_DEPTH = 3;
+export const FLIPPER_BODY_DEPTH = 1.2;
+export const FLIPPER_MAX_ANGLE = Math.PI / 3; // 60 degrees
+
 export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
-  const width = 2;
+  const width = CAR_BODY_WIDTH;
   const height = 1;
-  const depth = 3;
+  const depth = CAR_BODY_DEPTH;
 
   const wheelRadius = options.wheelRadius || 0.6;
   const wheelWidth = wheelRadius * 0.5;
@@ -111,7 +116,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   // Flipper - wedge at the front of the car
   const flipperWidth = width;
   const flipperHeight = 0.15;
-  const flipperDepth = 1.2;
+  const flipperDepth = FLIPPER_BODY_DEPTH;
   const flipperGeometry = new THREE.BoxGeometry(flipperWidth, flipperHeight, flipperDepth);
   // Shift geometry pivot to the back edge so it rotates from the hinge point
   flipperGeometry.translate(0, 0, -flipperDepth / 2);
@@ -121,13 +126,13 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   flipper.castShadow = true;
   group.add(flipper);
 
-  const FLIPPER_MAX_ANGLE = Math.PI / 3; // 60 degrees
   const FLIPPER_UP_SPEED = 12;
   const FLIPPER_DOWN_SPEED = 4;
   let flipperAngle = 0;
   let flipperActive = false;
 
   function activateFlipper() {
+    if (!hasFlipper) return;
     flipperActive = true;
   }
 
@@ -136,6 +141,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   const mass = options.mass ?? 1;
   const collisionRadius = Math.sqrt((width / 2) ** 2 + (depth / 2) ** 2);
   let hasWheels = true;
+  let hasFlipper = true;
 
   function applyCustomisation(selections = {}) {
     if ('model' in selections) {
@@ -146,7 +152,8 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
       wheels.forEach(w => { w.visible = hasWheels; });
     }
     if ('flipper' in selections) {
-      flipper.visible = selections.flipper !== null;
+      hasFlipper = selections.flipper !== null;
+      flipper.visible = hasFlipper;
     }
   }
 
@@ -199,7 +206,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     //   - wheels extend wheelWidth beyond each side of the body
     //   - flipper projects flipperDepth * cos(angle) beyond the front of the body
     const effectiveHalfWidth = width / 2 + wheelWidth;
-    const effectiveHalfDepth = depth / 2 + flipperDepth * Math.cos(flipperAngle);
+    const effectiveHalfDepth = depth / 2 + (hasFlipper ? flipperDepth * Math.cos(flipperAngle) : 0);
 
     const halfExtentX = cosR * effectiveHalfWidth + sinR * effectiveHalfDepth;
     const halfExtentZ = sinR * effectiveHalfWidth + cosR * effectiveHalfDepth;
@@ -283,6 +290,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     flame,
     particles,
     get flipperAngle() { return flipperAngle; },
+    get flipperActive() { return flipperActive; },
     get flamethrowerActive() { return flamethrowerActive; },
     get rotation() { return rotation; },
     get velocity() { return velocity; },

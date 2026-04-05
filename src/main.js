@@ -11,6 +11,7 @@ import { createExitScreen } from './exit-screen.js';
 import { createGameController } from './game.js';
 import { createCustomiseScreen } from './customise-screen.js';
 import { resolveCollision } from './collision.js';
+import { applyFlipperImpulse } from './flipper-physics.js';
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -66,6 +67,7 @@ const ACCEL = 20;
 const TURN_SPEED = 3;
 let lastTime = performance.now();
 let rafId = null;
+let flipImpulseApplied = false;
 
 function gameLoop(time) {
   const dt = (time - lastTime) / 1000;
@@ -81,7 +83,10 @@ function gameLoop(time) {
   if (input.isPressed('backward')) car.accelerate(-ACCEL * dt);
   if (input.isPressed('turnLeft')) car.turnLeft(TURN_SPEED * dt);
   if (input.isPressed('turnRight')) car.turnRight(TURN_SPEED * dt);
-  if (input.wasJustPressed('flipper')) car.activateFlipper();
+  if (input.wasJustPressed('flipper')) {
+    car.activateFlipper();
+    flipImpulseApplied = false;
+  }
   if (input.isPressed('flamethrower')) {
     car.activateFlamethrower();
   } else {
@@ -93,6 +98,13 @@ function gameLoop(time) {
 
   robot.update(dt);
   robot.bounceOffWalls(ARENA_SIZE);
+
+  // Apply flipper impulse once per flip activation when robot is in range
+  if (car.flipperActive && !flipImpulseApplied) {
+    if (applyFlipperImpulse(car, robot)) {
+      flipImpulseApplied = true;
+    }
+  }
 
   // Resolve collision between player car and dummy robot
   const collided = resolveCollision(
