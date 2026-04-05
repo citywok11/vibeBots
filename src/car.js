@@ -3,10 +3,15 @@ import * as THREE from 'three';
 const RESTITUTION = 0.6;
 const FRICTION = 0.98;
 
+export const CAR_BODY_WIDTH = 2;
+export const CAR_BODY_DEPTH = 3;
+export const FLIPPER_BODY_DEPTH = 1.2;
+export const FLIPPER_MAX_ANGLE = Math.PI / 3; // 60 degrees
+
 export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
-  const width = 2;
+  const width = CAR_BODY_WIDTH;
   const height = 1;
-  const depth = 3;
+  const depth = CAR_BODY_DEPTH;
 
   const wheelRadius = options.wheelRadius || 0.6;
   const wheelWidth = wheelRadius * 0.5;
@@ -111,7 +116,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   // Flipper - wedge at the front of the car
   const flipperWidth = width;
   const flipperHeight = 0.15;
-  const flipperDepth = 1.2;
+  const flipperDepth = FLIPPER_BODY_DEPTH;
   const flipperGeometry = new THREE.BoxGeometry(flipperWidth, flipperHeight, flipperDepth);
   // Shift geometry pivot to the back edge so it rotates from the hinge point
   flipperGeometry.translate(0, 0, -flipperDepth / 2);
@@ -121,7 +126,6 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   flipper.castShadow = true;
   group.add(flipper);
 
-  const FLIPPER_MAX_ANGLE = Math.PI / 3; // 60 degrees
   const FLIPPER_UP_SPEED = 12;
   const FLIPPER_DOWN_SPEED = 4;
   let flipperAngle = 0;

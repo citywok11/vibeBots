@@ -3,10 +3,13 @@ import * as THREE from 'three';
 const RESTITUTION = 0.6;
 const GRAVITY = 20;
 
+export const ROBOT_BODY_WIDTH = 2;
+export const ROBOT_BODY_DEPTH = 3;
+
 export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
-  const width = 2;
+  const width = ROBOT_BODY_WIDTH;
   const height = 1;
-  const depth = 3;
+  const depth = ROBOT_BODY_DEPTH;
 
   const wheelRadius = options.wheelRadius || 0.6;
   const groupY = wheelRadius + height / 2;

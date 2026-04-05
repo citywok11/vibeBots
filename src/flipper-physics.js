@@ -1,16 +1,14 @@
-// Dimensions mirroring car.js and robot.js — kept as constants to avoid coupling
-const CAR_DEPTH = 3;
-const FLIPPER_DEPTH = 1.2;
-const FLIPPER_HALF_WIDTH = 1; // flipperWidth (2) / 2
-const ROBOT_HALF_WIDTH = 1;   // robot body width (2) / 2
-const ROBOT_HALF_DEPTH = 1.5; // robot body depth (3) / 2
+import { CAR_BODY_DEPTH, CAR_BODY_WIDTH, FLIPPER_BODY_DEPTH, FLIPPER_MAX_ANGLE } from './car.js';
+import { ROBOT_BODY_WIDTH, ROBOT_BODY_DEPTH } from './robot.js';
 
-// The flipper hinge sits at the front face of the car body (-CAR_DEPTH/2 in local Z).
-// The flipper tip (when flat) reaches a further -FLIPPER_DEPTH beyond the hinge.
-const FLIPPER_HINGE_Z = -(CAR_DEPTH / 2);
-const FLIPPER_TIP_Z = -(CAR_DEPTH / 2 + FLIPPER_DEPTH);
+const FLIPPER_HALF_WIDTH = CAR_BODY_WIDTH / 2;   // half of flipper width (= car body width)
+const ROBOT_HALF_WIDTH = ROBOT_BODY_WIDTH / 2;
+const ROBOT_HALF_DEPTH = ROBOT_BODY_DEPTH / 2;
 
-const FLIPPER_MAX_ANGLE = Math.PI / 3; // must match car.js
+// The flipper hinge sits at the front face of the car body (-CAR_BODY_DEPTH/2 in local Z).
+// The flipper tip (when flat) reaches a further -FLIPPER_BODY_DEPTH beyond the hinge.
+const FLIPPER_HINGE_Z = -(CAR_BODY_DEPTH / 2);
+const FLIPPER_TIP_Z = -(CAR_BODY_DEPTH / 2 + FLIPPER_BODY_DEPTH);
 const FLIPPER_STRENGTH = 15;
 const LATERAL_FACTOR = 0.5;
 
