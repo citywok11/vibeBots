@@ -1,10 +1,11 @@
-import { MODEL_CATALOGUE, WHEEL_CATALOGUE, FLIPPER_CATALOGUE } from './car.js';
+import { MODEL_CATALOGUE, WHEEL_CATALOGUE, FLIPPER_CATALOGUE, MACHINE_GUN_CATALOGUE } from './car.js';
 
 const CATALOGUE = {
   models: MODEL_CATALOGUE,
   wheels: WHEEL_CATALOGUE,
   flippers: FLIPPER_CATALOGUE,
   flamethrowers: [{ id: 'standard', label: 'Standard' }],
+  machineGuns: MACHINE_GUN_CATALOGUE,
 };
 
 function createModelVisual(item) {
@@ -161,6 +162,42 @@ function createFlamethrowerVisual(_item) {
   return wrap;
 }
 
+function createMachineGunVisual(_item) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position: relative; width: 70px; height: 70px; display: flex; align-items: center; justify-content: center;';
+
+  const outer = document.createElement('div');
+  outer.style.cssText = 'position: relative; width: 62px; height: 22px;';
+
+  // Barrel body - thinner than flamethrower
+  const barrel = document.createElement('div');
+  barrel.style.cssText = 'position: absolute; bottom: 7px; left: 0; width: 46px; height: 7px; background: #555; border-radius: 2px;';
+
+  // Barrel tip
+  const tip = document.createElement('div');
+  tip.style.cssText = 'position: absolute; bottom: 9px; left: 46px; width: 6px; height: 4px; background: #333; border-radius: 1px;';
+
+  // Muzzle flash dots
+  const flash1 = document.createElement('div');
+  flash1.style.cssText = 'position: absolute; bottom: 6px; left: 54px; width: 5px; height: 5px; background: #ffdd00; border-radius: 50%;';
+
+  const flash2 = document.createElement('div');
+  flash2.style.cssText = 'position: absolute; bottom: 10px; left: 56px; width: 4px; height: 4px; background: #ffaa00; border-radius: 50%;';
+
+  // Ammo feed box
+  const ammoBox = document.createElement('div');
+  ammoBox.style.cssText = 'position: absolute; bottom: 0; left: 8px; width: 16px; height: 7px; background: #444; border-radius: 1px; border: 1px solid #666;';
+
+  outer.appendChild(barrel);
+  outer.appendChild(tip);
+  outer.appendChild(flash1);
+  outer.appendChild(flash2);
+  outer.appendChild(ammoBox);
+  wrap.appendChild(outer);
+
+  return wrap;
+}
+
 function createItemButton(item, isSelected, visualFactory) {
   const btn = document.createElement('button');
   btn.className = 'customise-item-button';
@@ -254,6 +291,7 @@ export function createCustomiseScreen(container) {
     wheels: null,
     flipper: null,
     flamethrower: null,
+    machineGun: null,
     botAI: false,
   };
 
@@ -303,6 +341,7 @@ export function createCustomiseScreen(container) {
   panel.appendChild(createSection('Wheels', CATALOGUE.wheels, 'wheels', selections, createWheelVisual));
   panel.appendChild(createSection('Flipper', CATALOGUE.flippers, 'flipper', selections, createFlipperVisual));
   panel.appendChild(createSection('Flamethrower', CATALOGUE.flamethrowers, 'flamethrower', selections, createFlamethrowerVisual));
+  panel.appendChild(createSection('Machine Gun', CATALOGUE.machineGuns, 'machineGun', selections, createMachineGunVisual));
 
   // Bot AI toggle
   const aiSection = document.createElement('div');

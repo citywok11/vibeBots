@@ -967,6 +967,170 @@ describe('Car applyCustomisation()', () => {
   });
 });
 
+describe('Car machine gun', () => {
+  it('should have a machine gun barrel attached to the car group', () => {
+    const car = createCar();
+    expect(car.machineGun).toBeDefined();
+    expect(car.machineGun.isMesh).toBe(true);
+    expect(car.group.children).toContain(car.machineGun);
+  });
+
+  it('should have a muzzle flash mesh attached to the car group', () => {
+    const car = createCar();
+    expect(car.muzzleFlash).toBeDefined();
+    expect(car.muzzleFlash.isMesh).toBe(true);
+    expect(car.group.children).toContain(car.muzzleFlash);
+  });
+
+  it('should position the machine gun barrel on top of the car body', () => {
+    const car = createCar();
+    expect(car.machineGun.position.y).toBeGreaterThan(0);
+  });
+
+  it('should start with the machine gun inactive', () => {
+    const car = createCar();
+    expect(car.machineGunActive).toBe(false);
+  });
+
+  it('should start with the muzzle flash hidden', () => {
+    const car = createCar();
+    expect(car.muzzleFlash.visible).toBe(false);
+  });
+
+  it('should activate the machine gun when activateMachineGun() is called', () => {
+    const car = createCar();
+    car.activateMachineGun();
+    expect(car.machineGunActive).toBe(true);
+  });
+
+  it('should stay active while activateMachineGun is held (channel behaviour)', () => {
+    const car = createCar();
+    car.activateMachineGun();
+    for (let i = 0; i < 50; i++) {
+      car.update(0.02);
+    }
+    expect(car.machineGunActive).toBe(true);
+  });
+
+  it('should deactivate when deactivateMachineGun() is called', () => {
+    const car = createCar();
+    car.activateMachineGun();
+    car.update(0.016);
+    car.deactivateMachineGun();
+    car.update(0.016);
+    expect(car.machineGunActive).toBe(false);
+  });
+
+  it('should have bullet particles attached to the car group', () => {
+    const car = createCar();
+    expect(car.mgParticles).toBeDefined();
+    expect(car.mgParticles.length).toBeGreaterThan(0);
+    car.mgParticles.forEach(p => {
+      expect(car.group.children).toContain(p.mesh);
+    });
+  });
+
+  it('should hide particles when machine gun is inactive', () => {
+    const car = createCar();
+    car.update(0.016);
+    car.mgParticles.forEach(p => {
+      expect(p.mesh.visible).toBe(false);
+    });
+  });
+
+  it('should show particles when machine gun is active', () => {
+    const car = createCar();
+    car.activateMachineGun();
+    car.update(0.1);
+    const anyVisible = car.mgParticles.some(p => p.mesh.visible);
+    expect(anyVisible).toBe(true);
+  });
+
+  it('should hide particles after machine gun is deactivated', () => {
+    const car = createCar();
+    car.activateMachineGun();
+    car.update(0.1);
+    car.deactivateMachineGun();
+    car.update(0.016);
+    car.mgParticles.forEach(p => {
+      expect(p.mesh.visible).toBe(false);
+    });
+  });
+
+  it('should reset machine gun state on reset()', () => {
+    const car = createCar();
+    car.activateMachineGun();
+    car.update(0.1);
+    car.reset();
+    expect(car.machineGunActive).toBe(false);
+    car.mgParticles.forEach(p => {
+      expect(p.mesh.visible).toBe(false);
+    });
+  });
+
+  it('should deactivate the flamethrower when machine gun is activated (mutual exclusivity)', () => {
+    const car = createCar();
+    car.activateFlamethrower();
+    expect(car.flamethrowerActive).toBe(true);
+    car.activateMachineGun();
+    expect(car.machineGunActive).toBe(true);
+    expect(car.flamethrowerActive).toBe(false);
+  });
+
+  it('should deactivate the machine gun when flamethrower is activated (mutual exclusivity)', () => {
+    const car = createCar();
+    car.activateMachineGun();
+    expect(car.machineGunActive).toBe(true);
+    car.activateFlamethrower();
+    expect(car.flamethrowerActive).toBe(true);
+    expect(car.machineGunActive).toBe(false);
+  });
+
+  it('should hide the machine gun barrel when machineGun selection is null', () => {
+    const car = createCar();
+    car.applyCustomisation({ machineGun: null });
+    expect(car.machineGun.visible).toBe(false);
+  });
+
+  it('should show the machine gun barrel when machineGun selection is standard', () => {
+    const car = createCar();
+    car.machineGun.visible = false;
+    car.applyCustomisation({ machineGun: 'standard' });
+    expect(car.machineGun.visible).toBe(true);
+  });
+
+  it('should prevent activateMachineGun when machine gun is deselected', () => {
+    const car = createCar();
+    car.applyCustomisation({ machineGun: null });
+    car.activateMachineGun();
+    car.update(0.016);
+    expect(car.machineGunActive).toBe(false);
+  });
+
+  it('should allow activateMachineGun again when re-selected after being deselected', () => {
+    const car = createCar();
+    car.applyCustomisation({ machineGun: null });
+    car.activateMachineGun();
+    car.update(0.016);
+    expect(car.machineGunActive).toBe(false);
+    car.applyCustomisation({ machineGun: 'standard' });
+    car.activateMachineGun();
+    car.update(0.016);
+    expect(car.machineGunActive).toBe(true);
+  });
+
+  it('should hide muzzle flash and particles immediately when machine gun is deselected while active', () => {
+    const car = createCar();
+    car.activateMachineGun();
+    car.update(0.1);
+    car.applyCustomisation({ machineGun: null });
+    expect(car.muzzleFlash.visible).toBe(false);
+    car.mgParticles.forEach(p => {
+      expect(p.mesh.visible).toBe(false);
+    });
+  });
+});
+
 describe('Car angular velocity (yaw spin from collisions)', () => {
   it('should expose an angularVelocity property starting at zero', () => {
     const car = createCar();

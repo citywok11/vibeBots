@@ -26,6 +26,10 @@ export const FLIPPER_CATALOGUE = [
   { id: 'light',    label: 'Light',    depth: 0.8, power: 0.6, maxAngle: Math.PI / 4,   upSpeed: 20, downSpeed: 6,  color: 0xeeeeee },
 ];
 
+export const MACHINE_GUN_CATALOGUE = [
+  { id: 'standard', label: 'Standard' },
+];
+
 export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   // Physics bounding-box dimensions are fixed to the standard model so that
   // wall-bounce calculations remain stable regardless of which visual model is selected.
@@ -146,13 +150,77 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   let flamethrowerActive = false;
   let hasFlamethrower = true;
 
+  // Machine gun - barrel offset to the right of centre
+  const machineGunGeometry = new THREE.CylinderGeometry(0.06, 0.08, 1.2, 8);
+  machineGunGeometry.rotateX(Math.PI / 2);
+  const machineGunMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
+  const machineGun = new THREE.Mesh(machineGunGeometry, machineGunMaterial);
+  machineGun.position.set(0.5, height / 2, 0);
+  machineGun.castShadow = true;
+  group.add(machineGun);
+
+  // Muzzle flash - small cone at the barrel tip
+  const muzzleFlashGeometry = new THREE.ConeGeometry(0.15, 0.5, 6);
+  muzzleFlashGeometry.rotateX(-Math.PI / 2);
+  const muzzleFlashMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffdd00,
+    emissive: 0xffaa00,
+    emissiveIntensity: 1.5,
+  });
+  const muzzleFlash = new THREE.Mesh(muzzleFlashGeometry, muzzleFlashMaterial);
+  muzzleFlash.position.set(0.5, height / 2, -1.5);
+  muzzleFlash.visible = false;
+  group.add(muzzleFlash);
+
+  // Bullet particles - small fast-moving spheres
+  const N_MG_PARTICLES = 20;
+  const MG_PARTICLE_LIFETIME = 0.15;
+  const MG_PARTICLE_SPEED = 12;
+  const MG_PARTICLE_SPREAD = 0.05;
+  const MG_PARTICLE_SPAWN_Z = -1.6;
+  const MG_PARTICLE_SPAWN_Y = height / 2;
+
+  const mgParticleGeometry = new THREE.SphereGeometry(0.05, 4, 4);
+  const mgParticles = [];
+  for (let i = 0; i < N_MG_PARTICLES; i++) {
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0xffdd00,
+      emissive: 0xffaa00,
+      emissiveIntensity: 2.0,
+      transparent: true,
+      opacity: 0,
+    });
+    const mesh = new THREE.Mesh(mgParticleGeometry, mat);
+    mesh.visible = false;
+    group.add(mesh);
+    mgParticles.push({
+      mesh,
+      age: Math.random() * MG_PARTICLE_LIFETIME,
+      spawnX: 0.5 + (Math.random() - 0.5) * MG_PARTICLE_SPREAD,
+    });
+  }
+
+  let machineGunActive = false;
+  let hasMachineGun = true;
+
   function activateFlamethrower() {
     if (!hasFlamethrower) return;
+    machineGunActive = false;
     flamethrowerActive = true;
   }
 
   function deactivateFlamethrower() {
     flamethrowerActive = false;
+  }
+
+  function activateMachineGun() {
+    if (!hasMachineGun) return;
+    flamethrowerActive = false;
+    machineGunActive = true;
+  }
+
+  function deactivateMachineGun() {
+    machineGunActive = false;
   }
 
   // --- Flipper meshes (one per FLIPPER_CATALOGUE entry) ---
@@ -270,6 +338,15 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
         particles.forEach(p => { p.mesh.visible = false; });
       }
     }
+    if ('machineGun' in selections) {
+      hasMachineGun = selections.machineGun !== null;
+      machineGun.visible = hasMachineGun;
+      if (!hasMachineGun) {
+        machineGunActive = false;
+        muzzleFlash.visible = false;
+        mgParticles.forEach(p => { p.mesh.visible = false; });
+      }
+    }
   }
 
   function reset() {
@@ -294,6 +371,14 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
       p.mesh.material.opacity = 0;
       p.age = Math.random() * PARTICLE_LIFETIME;
       p.spawnX = (Math.random() - 0.5) * PARTICLE_SPREAD;
+    });
+    machineGunActive = false;
+    muzzleFlash.visible = false;
+    mgParticles.forEach(p => {
+      p.mesh.visible = false;
+      p.mesh.material.opacity = 0;
+      p.age = Math.random() * MG_PARTICLE_LIFETIME;
+      p.spawnX = 0.5 + (Math.random() - 0.5) * MG_PARTICLE_SPREAD;
     });
   }
 
@@ -426,6 +511,29 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     } else {
       particles.forEach(p => { p.mesh.visible = false; });
     }
+
+    // Machine gun animation
+    muzzleFlash.visible = machineGunActive;
+    if (machineGunActive) {
+      muzzleFlash.visible = Math.floor(Date.now() / 50) % 2 === 0; // flicker at ~20 Hz
+      mgParticles.forEach(p => {
+        p.age += dt;
+        if (p.age >= MG_PARTICLE_LIFETIME) {
+          p.age = 0;
+          p.spawnX = 0.5 + (Math.random() - 0.5) * MG_PARTICLE_SPREAD;
+        }
+        const t = p.age / MG_PARTICLE_LIFETIME;
+        p.mesh.position.set(
+          p.spawnX,
+          MG_PARTICLE_SPAWN_Y,
+          MG_PARTICLE_SPAWN_Z - MG_PARTICLE_SPEED * p.age,
+        );
+        p.mesh.material.opacity = 1 - t;
+        p.mesh.visible = true;
+      });
+    } else {
+      mgParticles.forEach(p => { p.mesh.visible = false; });
+    }
   }
 
   /**
@@ -475,9 +583,13 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     flamethrower,
     flame,
     particles,
+    machineGun,
+    muzzleFlash,
+    mgParticles,
     get flipperAngle() { return flipperAngle; },
     get flipperActive() { return flipperActive; },
     get flamethrowerActive() { return flamethrowerActive; },
+    get machineGunActive() { return machineGunActive; },
     get rotation() { return rotation; },
     get velocity() { return velocity; },
     get mass() { return currentMass; },
@@ -494,6 +606,8 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     activateFlipper,
     activateFlamethrower,
     deactivateFlamethrower,
+    activateMachineGun,
+    deactivateMachineGun,
     turnLeft,
     turnRight,
     bounceOffWalls,
