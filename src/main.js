@@ -70,9 +70,15 @@ homeScreen.onExit(() => {
 });
 
 // Options screen callbacks
+let keyBindingsReturnTo = null;
+
+keyBindingsScreen.onClose(() => {
+  if (keyBindingsReturnTo) keyBindingsReturnTo();
+});
+
 optionsScreen.onKeyBindings(() => {
   optionsScreen.close();
-  keyBindingsScreen.onClose(() => { optionsScreen.open(); });
+  keyBindingsReturnTo = () => optionsScreen.open();
   keyBindingsScreen.open();
 });
 
@@ -90,7 +96,7 @@ window.addEventListener('keydown', (e) => {
 
 menu.onKeyBindings(() => {
   menu.close();
-  keyBindingsScreen.onClose(() => { menu.open(); });
+  keyBindingsReturnTo = () => menu.open();
   keyBindingsScreen.open();
 });
 
