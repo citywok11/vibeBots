@@ -201,10 +201,14 @@ describe('Robot', () => {
       robot.bounceOffWalls(arenaSize);
 
       // After clamping, the rotated AABB maxX extent must sit inside the arena
+      // Effective extents include wheels: halfW = width/2 + AXLE_GAP + wheelWidth
+      //   = 1 + 0.3 + 0.3 = 1.6
+      // halfD = max(depth/2, wheelOffsetZ + wheelRadius)
+      //   = max(1.5, (1.5-0.4) + 0.6) = max(1.5, 1.7) = 1.7
       const cosR = Math.cos(Math.PI / 4);
       const sinR = Math.sin(Math.PI / 4);
-      const halfW = 1; // width / 2
-      const halfD = 1.5; // depth / 2
+      const halfW = 1.6;
+      const halfD = 1.7;
       let maxX = -Infinity;
       for (const lz of [-halfD, halfD]) {
         for (const lx of [-halfW, halfW]) {
@@ -226,6 +230,92 @@ describe('Robot', () => {
       robot.velocity.x = 5;
       const result = robot.bounceOffWalls(arenaSize);
       expect(result.bounced).toBe(true);
+    });
+  });
+
+  describe('wheel collision with walls', () => {
+    // Robot geometry (default wheelRadius=0.6):
+    //   width=2, depth=3, wheelWidth = wheelRadius * 0.5 = 0.3
+    //   AXLE_GAP = 0.3
+    //   wheelOffsetX = width/2 + AXLE_GAP + wheelWidth/2 = 1 + 0.3 + 0.15 = 1.45
+    //   Wheel outer edge X = wheelOffsetX + wheelWidth/2 = 1.45 + 0.15 = 1.6
+    //   → effective halfW = 1.6  (body-only halfW = 1.0)
+    //
+    //   wheelOffsetZ = depth/2 - 0.4 = 1.1
+    //   Wheel outer Z = wheelOffsetZ + wheelRadius = 1.1 + 0.6 = 1.7
+    //   → effective halfD = max(1.5, 1.7) = 1.7  (body-only halfD = 1.5)
+    //
+    // With arenaSize=50 (half=25) at rotation=0:
+    //   body-only limitX = 25 - 1.0 = 24.0
+    //   wheel     limitX = 25 - 1.6 = 23.4
+    //   body-only limitZ = 25 - 1.5 = 23.5
+    //   wheel     limitZ = 25 - 1.7 = 23.3
+
+    it('should bounce off the east wall when the wheel extends into it even though the body centre is clear', () => {
+      // At x=23.5: body-only → no bounce (23.5 < 24.0), wheel-inclusive → bounce (23.5 > 23.4)
+      const arenaSize = 50;
+      const robot = createRobot({ x: 23.5, z: 0 });
+      robot.velocity.x = 5;
+      const result = robot.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(true);
+      expect(robot.velocity.x).toBeLessThan(0);
+    });
+
+    it('should bounce off the west wall when the wheel extends into it even though the body centre is clear', () => {
+      const arenaSize = 50;
+      const robot = createRobot({ x: -23.5, z: 0 });
+      robot.velocity.x = -5;
+      const result = robot.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(true);
+      expect(robot.velocity.x).toBeGreaterThan(0);
+    });
+
+    it('should not bounce when all wheels are inside the arena', () => {
+      // wheel outer edge at x = 23 + 1.6 = 24.6, inside half=25
+      const arenaSize = 50;
+      const robot = createRobot({ x: 23, z: 0 });
+      robot.velocity.x = 5;
+      const result = robot.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(false);
+    });
+
+    it('should clamp position so no wheel extends beyond the arena wall', () => {
+      const arenaSize = 50;
+      const half = arenaSize / 2;
+      // effectiveHalfWidth = width/2 + AXLE_GAP + wheelWidth = 1 + 0.3 + 0.3 = 1.6
+      const effectiveHalfWidth = 1.6;
+      const robot = createRobot({ x: 40, z: 0 }); // well past the east wall
+      robot.bounceOffWalls(arenaSize);
+      expect(robot.group.position.x + effectiveHalfWidth).toBeLessThanOrEqual(half + 0.001);
+    });
+
+    it('should bounce off the south wall when the wheel radius extends past it', () => {
+      // At z=23.4: body-only limitZ=23.5 → no bounce; wheel limitZ=23.3 → bounce
+      const arenaSize = 50;
+      const robot = createRobot({ x: 0, z: 23.4 });
+      robot.velocity.z = 5;
+      const result = robot.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(true);
+      expect(robot.velocity.z).toBeLessThan(0);
+    });
+
+    it('should bounce off the north wall when the wheel radius extends past it', () => {
+      const arenaSize = 50;
+      const robot = createRobot({ x: 0, z: -23.4 });
+      robot.velocity.z = -5;
+      const result = robot.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(true);
+      expect(robot.velocity.z).toBeGreaterThan(0);
+    });
+
+    it('should clamp position so no wheel extends beyond the north/south wall', () => {
+      const arenaSize = 50;
+      const half = arenaSize / 2;
+      // effectiveHalfDepth = max(depth/2, wheelOffsetZ + wheelRadius) = max(1.5, 1.7) = 1.7
+      const effectiveHalfDepth = 1.7;
+      const robot = createRobot({ x: 0, z: 40 }); // well past the south wall
+      robot.bounceOffWalls(arenaSize);
+      expect(robot.group.position.z + effectiveHalfDepth).toBeLessThanOrEqual(half + 0.001);
     });
   });
 
