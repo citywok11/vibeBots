@@ -39,6 +39,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   const groupY = wheelRadius + height / 2;
 
   const group = new THREE.Group();
+  group.rotation.order = 'YXZ'; // yaw first, then pitch/roll in body space (pit lean, impacts)
   group.position.set(startPos.x, groupY, startPos.z);
 
   // --- Body meshes (one per MODEL_CATALOGUE entry) ---
@@ -386,8 +387,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     if (Math.abs(pitchTilt) < 0.001) pitchTilt = 0;
     if (Math.abs(rollTilt) < 0.001) rollTilt = 0;
 
-    // Apply all rotations to the group
-    group.rotation.set(pitchTilt, rotation, rollTilt);
+    applyFrameRotation(0, 0);
 
     // Flipper animation
     const activeFlipper = flipperMeshes.get(activeFlipperId || 'standard');
@@ -463,6 +463,10 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     rollTilt = Math.max(-TILT_MAX, Math.min(TILT_MAX, rollTilt + rawRoll));
   }
 
+  function applyFrameRotation(pitPitch, pitRoll) {
+    group.rotation.set(pitchTilt + pitPitch, rotation, rollTilt + pitRoll);
+  }
+
   return {
     group,
     get mesh() { return bodyMeshes.get(activeModelId || 'standard'); },
@@ -484,6 +488,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     get pitchTilt() { return pitchTilt; },
     get rollTilt() { return rollTilt; },
     get groundY() { return groupY; },
+    get wheelThicknessHalf() { return currentWheelWidth / 2; },
     collisionRadius,
     accelerate,
     activateFlipper,
@@ -493,6 +498,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     turnRight,
     bounceOffWalls,
     update,
+    applyFrameRotation,
     reset,
     applyCustomisation,
     applyAngularImpulse,

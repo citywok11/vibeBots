@@ -17,6 +17,7 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
   const groupY = wheelRadius + height / 2;
 
   const group = new THREE.Group();
+  group.rotation.order = 'YXZ'; // yaw first, then pitch/roll in body space
   group.position.set(startPos.x, groupY, startPos.z);
 
   // Body
@@ -136,9 +137,12 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
     if (Math.abs(pitchTilt) < 0.001) pitchTilt = 0;
     if (Math.abs(rollTilt) < 0.001) rollTilt = 0;
 
-    // Apply pitch and roll (preserve yaw)
+    applyFrameRotation(0, 0);
+  }
+
+  function applyFrameRotation(pitPitch, pitRoll) {
     const yaw = group.rotation.y;
-    group.rotation.set(pitchTilt, yaw, rollTilt);
+    group.rotation.set(pitchTilt + pitPitch, yaw, rollTilt + pitRoll);
   }
 
   /**
@@ -256,12 +260,14 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
     get velocityY() { return velocityY; },
     set velocityY(v) { velocityY = v; },
     get groundY() { return groupY; },
+    get wheelThicknessHalf() { return wheelWidth / 2; },
     get angularVelocity() { return angularVelocity; },
     get pitchTilt() { return pitchTilt; },
     get rollTilt() { return rollTilt; },
     bounceOffWalls,
     update,
     updateAI,
+    applyFrameRotation,
     applyCollisionFriction,
     applyAngularImpulse,
     applyImpactTilt,
