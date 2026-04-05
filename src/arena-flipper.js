@@ -69,7 +69,7 @@ export function createArenaFlipper(x, z, facingAngle = 0, tuning = {}) {
 
   // Track which robots have already been launched during the current swing
   // so we don't apply impulse more than once per fire.
-  let launchedSet = new Set();
+  let launchedRobotsThisSwing = new Set();
 
   function getState() { return state; }
   function getAngle() { return angle; }
@@ -83,7 +83,7 @@ export function createArenaFlipper(x, z, facingAngle = 0, tuning = {}) {
   function fire() {
     if (state !== STATE_IDLE) return false;
     state = STATE_FIRING;
-    launchedSet = new Set();
+    launchedRobotsThisSwing = new Set();
     return true;
   }
 
@@ -172,7 +172,7 @@ export function createArenaFlipper(x, z, facingAngle = 0, tuning = {}) {
     if (angle <= cfg.restAngle) return false;
 
     // Deduplicate: one impulse per robot per swing
-    if (launchedSet.has(robot)) return false;
+    if (launchedRobotsThisSwing.has(robot)) return false;
 
     const contact = checkContact(robot);
     if (!contact.onPaddle) return false;
@@ -199,7 +199,7 @@ export function createArenaFlipper(x, z, facingAngle = 0, tuning = {}) {
     robot.velocity.x += latX * lateralAssist;
     robot.velocity.z += latZ * lateralAssist;
 
-    launchedSet.add(robot);
+    launchedRobotsThisSwing.add(robot);
     return true;
   }
 
@@ -210,7 +210,7 @@ export function createArenaFlipper(x, z, facingAngle = 0, tuning = {}) {
     state = STATE_IDLE;
     angle = cfg.restAngle;
     cooldownTimer = 0;
-    launchedSet = new Set();
+    launchedRobotsThisSwing = new Set();
     paddle.rotation.x = -cfg.restAngle;
   }
 
