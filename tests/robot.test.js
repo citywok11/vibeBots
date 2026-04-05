@@ -347,4 +347,56 @@ describe('Robot', () => {
       expect(robot.rollTilt).toBe(0);
     });
   });
+
+  describe('updateAI', () => {
+    it('should expose an updateAI method', () => {
+      const robot = createRobot();
+      expect(typeof robot.updateAI).toBe('function');
+    });
+
+    it('should give the robot non-zero velocity after calling updateAI toward a distant target', () => {
+      const robot = createRobot({ x: 0, z: 0 });
+      robot.updateAI(0.1, { x: 10, z: 0 });
+      const speed = Math.sqrt(robot.velocity.x ** 2 + robot.velocity.z ** 2);
+      expect(speed).toBeGreaterThan(0);
+    });
+
+    it('should rotate the robot to face the target over time', () => {
+      const robot = createRobot({ x: 0, z: 0 });
+      // Target is to the right (+x). After enough AI ticks it should be facing roughly +x.
+      for (let i = 0; i < 100; i++) robot.updateAI(0.016, { x: 20, z: 0 });
+      // Facing +x means rotation.y ≈ PI/2
+      expect(robot.group.rotation.y).toBeCloseTo(Math.PI / 2, 1);
+    });
+
+    it('should move toward the target over time', () => {
+      const robot = createRobot({ x: 0, z: 0 });
+      const target = { x: 20, z: 0 };
+      const startDist = Math.abs(target.x - robot.group.position.x);
+      for (let i = 0; i < 60; i++) {
+        robot.updateAI(0.016, target);
+        robot.update(0.016);
+      }
+      const endDist = Math.abs(target.x - robot.group.position.x);
+      expect(endDist).toBeLessThan(startDist);
+    });
+
+    it('should not accelerate beyond AI_SPEED', () => {
+      const robot = createRobot({ x: 0, z: 0 });
+      // Many ticks pointing at target far away
+      for (let i = 0; i < 200; i++) {
+        robot.updateAI(0.016, { x: 1000, z: 0 });
+        robot.update(0.016);
+      }
+      const speed = Math.sqrt(robot.velocity.x ** 2 + robot.velocity.z ** 2);
+      expect(speed).toBeLessThanOrEqual(8 + 0.5); // AI_SPEED = 8, small tolerance for friction
+    });
+
+    it('should do nothing when already on top of the target', () => {
+      const robot = createRobot({ x: 0, z: 0 });
+      robot.updateAI(0.1, { x: 0, z: 0 });
+      expect(robot.velocity.x).toBe(0);
+      expect(robot.velocity.z).toBe(0);
+    });
+  });
 });

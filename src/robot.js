@@ -53,6 +53,10 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
   const mass = options.mass ?? 1;
   const collisionRadius = Math.sqrt((width / 2) ** 2 + (depth / 2) ** 2);
 
+  const AI_SPEED = 8;
+  const AI_ACCEL = 15;
+  const AI_TURN_SPEED = 2;
+
   const velocity = { x: 0, z: 0 };
   let velocityY = 0;
   let angularVelocity = 0;
@@ -180,6 +184,47 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
   }
 
   /**
+   * Simple chase AI: turns to face targetPos and accelerates toward it.
+   * Call once per frame before update(dt).
+   *
+   * @param {number} dt - Delta time in seconds
+   * @param {{ x: number, z: number }} targetPos - World-space position to chase
+   */
+  function updateAI(dt, targetPos) {
+    const dx = targetPos.x - group.position.x;
+    const dz = targetPos.z - group.position.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist < 0.1) return;
+
+    // Rotate to face target
+    const targetAngle = Math.atan2(dx, -dz);
+    let angleDiff = targetAngle - group.rotation.y;
+    while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+    while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+
+    const maxTurn = AI_TURN_SPEED * dt;
+    if (Math.abs(angleDiff) <= maxTurn) {
+      group.rotation.y = targetAngle;
+    } else {
+      group.rotation.y += Math.sign(angleDiff) * maxTurn;
+    }
+
+    // Accelerate in the forward direction up to AI_SPEED
+    const forwardX = Math.sin(group.rotation.y);
+    const forwardZ = -Math.cos(group.rotation.y);
+    const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+    if (speed < AI_SPEED) {
+      velocity.x += forwardX * AI_ACCEL * dt;
+      velocity.z += forwardZ * AI_ACCEL * dt;
+      const newSpeed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+      if (newSpeed > AI_SPEED) {
+        velocity.x = (velocity.x / newSpeed) * AI_SPEED;
+        velocity.z = (velocity.z / newSpeed) * AI_SPEED;
+      }
+    }
+  }
+
+  /**
    * Applies a visual pitch and roll tilt based on the collision impact direction.
    *
    * @param {number} nx - X component of collision normal (world space)
@@ -216,6 +261,7 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
     get rollTilt() { return rollTilt; },
     bounceOffWalls,
     update,
+    updateAI,
     applyCollisionFriction,
     applyAngularImpulse,
     applyImpactTilt,
