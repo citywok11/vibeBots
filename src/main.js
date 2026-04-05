@@ -13,6 +13,9 @@ import { createGameController } from './game.js';
 import { createCustomiseScreen } from './customise-screen.js';
 import { resolveCollision } from './collision.js';
 import { applyFlipperImpulse } from './flipper-physics.js';
+import { createPit } from './pit.js';
+import { createPitButton } from './pit-button.js';
+import { createPitAlarm } from './pit-alarm.js';
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -42,6 +45,23 @@ const ARENA_SIZE = 50;
 const arena = createArena(ARENA_SIZE);
 scene.add(arena.group);
 
+// Pit (centred in arena)
+const pit = createPit(ARENA_SIZE);
+scene.add(pit.group);
+
+// Pit button (on the east arena wall)
+const pitButton = createPitButton(ARENA_SIZE);
+scene.add(pitButton.group);
+
+// Pit alarm
+const pitAlarm = createPitAlarm();
+
+// Wire button → pit + alarm
+pitButton.onActivate(() => {
+  pit.activate();
+  pitAlarm.start();
+});
+
 // Car
 const car = createCar();
 scene.add(car.group);
@@ -67,9 +87,16 @@ const keyBindingsScreen = createKeyBindingsScreen(document.body, input);
 // Game loop
 const ACCEL = 20;
 const TURN_SPEED = 3;
+const PIT_FALL_SPEED = 8; // units per second drop when falling into pit
 let lastTime = performance.now();
 let rafId = null;
 let flipImpulseApplied = false;
+let carFalling = false;
+let robotFalling = false;
+
+function sinkIntoPit(entity, dt) {
+  entity.group.position.y -= PIT_FALL_SPEED * dt;
+}
 
 function gameLoop(time) {
   const dt = (time - lastTime) / 1000;
@@ -81,60 +108,98 @@ function gameLoop(time) {
     return;
   }
 
-  if (input.isPressed('forward')) car.accelerate(ACCEL * dt);
-  if (input.isPressed('backward')) car.accelerate(-ACCEL * dt);
-  if (input.isPressed('turnLeft')) car.turnLeft(TURN_SPEED * dt);
-  if (input.isPressed('turnRight')) car.turnRight(TURN_SPEED * dt);
-  if (input.wasJustPressed('flipper')) {
-    car.activateFlipper();
-    flipImpulseApplied = false;
+  // Pit button hit detection (car and robot can press it)
+  pitButton.checkHit(car.group.position.x, car.group.position.z, car.collisionRadius);
+  pitButton.checkHit(robot.group.position.x, robot.group.position.z, robot.collisionRadius);
+
+  // Update pit lowering animation; stop alarm when pit is fully open
+  pit.update(dt);
+  if (!pit.isLowering() && pitAlarm.isPlaying()) {
+    pitAlarm.stop();
   }
-  if (input.isPressed('flamethrower')) {
-    car.activateFlamethrower();
+
+  if (!carFalling) {
+    if (input.isPressed('forward')) car.accelerate(ACCEL * dt);
+    if (input.isPressed('backward')) car.accelerate(-ACCEL * dt);
+    if (input.isPressed('turnLeft')) car.turnLeft(TURN_SPEED * dt);
+    if (input.isPressed('turnRight')) car.turnRight(TURN_SPEED * dt);
+    if (input.wasJustPressed('flipper')) {
+      car.activateFlipper();
+      flipImpulseApplied = false;
+    }
+    if (input.isPressed('flamethrower')) {
+      car.activateFlamethrower();
+    } else {
+      car.deactivateFlamethrower();
+    }
+
+    car.update(dt);
+    car.bounceOffWalls(ARENA_SIZE);
+
+    if (pit.isOpen() && pit.containsPoint(car.group.position.x, car.group.position.z)) {
+      carFalling = true;
+    }
   } else {
-    car.deactivateFlamethrower();
+    sinkIntoPit(car, dt);
+    if (car.group.position.y < -10) {
+      car.reset();
+      car.group.position.y = 0;
+      carFalling = false;
+    }
   }
 
-  car.update(dt);
-  car.bounceOffWalls(ARENA_SIZE);
+  if (!robotFalling) {
+    robot.update(dt);
+    robot.bounceOffWalls(ARENA_SIZE);
 
-  robot.update(dt);
-  robot.bounceOffWalls(ARENA_SIZE);
+    if (pit.isOpen() && pit.containsPoint(robot.group.position.x, robot.group.position.z)) {
+      robotFalling = true;
+    }
+  } else {
+    sinkIntoPit(robot, dt);
+    if (robot.group.position.y < -10) {
+      robot.reset();
+      robot.group.position.y = 0;
+      robotFalling = false;
+    }
+  }
 
   // Apply flipper impulse once per flip activation when robot is in range
-  if (car.flipperActive && !flipImpulseApplied) {
+  if (!carFalling && !robotFalling && car.flipperActive && !flipImpulseApplied) {
     if (applyFlipperImpulse(car, robot)) {
       flipImpulseApplied = true;
     }
   }
 
-  // Resolve collision between player car and dummy robot
-  const collisionResult = resolveCollision(
-    {
-      position: car.group.position, velocity: car.velocity, mass: car.mass,
-      collisionRadius: car.collisionRadius, rotation: car.rotation,
-      bodyWidth: 2, bodyDepth: 3,
-    },
-    {
-      position: robot.group.position, velocity: robot.velocity, mass: robot.mass,
-      collisionRadius: robot.collisionRadius, rotation: robot.group.rotation.y,
-      bodyWidth: 2, bodyDepth: 3,
+  // Resolve collision between player car and dummy robot (only when neither is falling)
+  if (!carFalling && !robotFalling) {
+    const collisionResult = resolveCollision(
+      {
+        position: car.group.position, velocity: car.velocity, mass: car.mass,
+        collisionRadius: car.collisionRadius, rotation: car.rotation,
+        bodyWidth: 2, bodyDepth: 3,
+      },
+      {
+        position: robot.group.position, velocity: robot.velocity, mass: robot.mass,
+        collisionRadius: robot.collisionRadius, rotation: robot.group.rotation.y,
+        bodyWidth: 2, bodyDepth: 3,
+      }
+    );
+
+    if (collisionResult) {
+      const { angularImpulseA, angularImpulseB, impactNormal, impactSpeed } = collisionResult;
+
+      // Apply yaw spin to both vehicles
+      car.applyAngularImpulse(angularImpulseA);
+      robot.applyAngularImpulse(angularImpulseB);
+
+      // Apply pitch/roll tilt based on impact direction and speed
+      car.applyImpactTilt(-impactNormal.x, -impactNormal.z, impactSpeed);
+      robot.applyImpactTilt(impactNormal.x, impactNormal.z, impactSpeed);
+
+      // Existing lateral friction on the robot
+      robot.applyCollisionFriction(impactNormal.x, impactNormal.z);
     }
-  );
-
-  if (collisionResult) {
-    const { angularImpulseA, angularImpulseB, impactNormal, impactSpeed } = collisionResult;
-
-    // Apply yaw spin to both vehicles
-    car.applyAngularImpulse(angularImpulseA);
-    robot.applyAngularImpulse(angularImpulseB);
-
-    // Apply pitch/roll tilt based on impact direction and speed
-    car.applyImpactTilt(-impactNormal.x, -impactNormal.z, impactSpeed);
-    robot.applyImpactTilt(impactNormal.x, impactNormal.z, impactSpeed);
-
-    // Existing lateral friction on the robot
-    robot.applyCollisionFriction(impactNormal.x, impactNormal.z);
   }
 
   // Camera follows car
@@ -149,6 +214,9 @@ function gameLoop(time) {
 function startLoop() {
   car.reset();
   robot.reset();
+  carFalling = false;
+  robotFalling = false;
+  pitButton.reset();
   renderer.domElement.style.display = 'block';
   lastTime = performance.now();
   if (!rafId) rafId = requestAnimationFrame(gameLoop);
