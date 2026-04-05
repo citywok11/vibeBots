@@ -65,11 +65,33 @@ function createStandsAndAudience(size, wallThickness) {
   return { stands, audienceFigures };
 }
 
-export function createArena(size) {
+export function createArena(size, { pitCutout } = {}) {
   const group = new THREE.Group();
 
-  // Floor
-  const floorGeometry = new THREE.PlaneGeometry(size, size);
+  // Floor — if a pit cutout is specified, punch a hole so the pit shaft is visible
+  const half = size / 2;
+  let floorGeometry;
+  if (pitCutout) {
+    const shape = new THREE.Shape();
+    shape.moveTo(-half, -half);
+    shape.lineTo(half, -half);
+    shape.lineTo(half, half);
+    shape.lineTo(-half, half);
+    shape.lineTo(-half, -half);
+
+    const ph = pitCutout / 2;
+    const hole = new THREE.Path();
+    hole.moveTo(-ph, -ph);
+    hole.lineTo(ph, -ph);
+    hole.lineTo(ph, ph);
+    hole.lineTo(-ph, ph);
+    hole.lineTo(-ph, -ph);
+    shape.holes.push(hole);
+
+    floorGeometry = new THREE.ShapeGeometry(shape);
+  } else {
+    floorGeometry = new THREE.PlaneGeometry(size, size);
+  }
   const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
   const floor = new THREE.Mesh(floorGeometry, floorMaterial);
   floor.rotation.x = -Math.PI / 2;
@@ -79,7 +101,6 @@ export function createArena(size) {
   // Walls
   const wallHeight = 2;
   const wallThickness = 0.5;
-  const half = size / 2;
 
   const wallConfigs = [
     { width: size, pos: [0, wallHeight / 2, -half], rotation: 0 },        // North

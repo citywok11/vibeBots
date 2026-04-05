@@ -13,7 +13,7 @@ import { createGameController } from './game.js';
 import { createCustomiseScreen } from './customise-screen.js';
 import { resolveCollision } from './collision.js';
 import { applyFlipperImpulse } from './flipper-physics.js';
-import { createPit } from './pit.js';
+import { createPit, DEFAULT_PIT_SIZE } from './pit.js';
 import { createPitButton } from './pit-button.js';
 import { createPitAlarm } from './pit-alarm.js';
 
@@ -42,7 +42,7 @@ scene.add(directionalLight);
 
 // Arena
 const ARENA_SIZE = 50;
-const arena = createArena(ARENA_SIZE);
+const arena = createArena(ARENA_SIZE, { pitCutout: DEFAULT_PIT_SIZE });
 scene.add(arena.group);
 
 // Pit (centred in arena)
