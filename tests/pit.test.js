@@ -3,8 +3,7 @@ import { createPit, DEFAULT_PIT_SIZE } from '../src/pit.js';
 
 describe('Pit', () => {
   it('should export a default pit size constant', () => {
-    expect(typeof DEFAULT_PIT_SIZE).toBe('number');
-    expect(DEFAULT_PIT_SIZE).toBeGreaterThan(0);
+    expect(DEFAULT_PIT_SIZE).toBe(6);
   });
 
   it('should create a pit with a THREE.Group', () => {

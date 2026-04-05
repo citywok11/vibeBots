@@ -87,7 +87,8 @@ const keyBindingsScreen = createKeyBindingsScreen(document.body, input);
 // Game loop
 const ACCEL = 20;
 const TURN_SPEED = 3;
-const PIT_FALL_SPEED = 8; // units per second drop when falling into pit
+const PIT_FALL_SPEED = 8;   // units per second drop when falling into pit
+const PIT_RESET_DEPTH = -10; // Y depth at which a fallen bot resets
 let lastTime = performance.now();
 let rafId = null;
 let flipImpulseApplied = false;
@@ -141,7 +142,7 @@ function gameLoop(time) {
     }
   } else {
     sinkIntoPit(car, dt);
-    if (car.group.position.y < -10) {
+    if (car.group.position.y < PIT_RESET_DEPTH) {
       car.reset();
       car.group.position.y = 0;
       carFalling = false;
@@ -157,7 +158,7 @@ function gameLoop(time) {
     }
   } else {
     sinkIntoPit(robot, dt);
-    if (robot.group.position.y < -10) {
+    if (robot.group.position.y < PIT_RESET_DEPTH) {
       robot.reset();
       robot.group.position.y = 0;
       robotFalling = false;
