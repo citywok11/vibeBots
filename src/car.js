@@ -104,8 +104,10 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
   }
 
   let flamethrowerActive = false;
+  let hasFlamethrower = true;
 
   function activateFlamethrower() {
+    if (!hasFlamethrower) return;
     flamethrowerActive = true;
   }
 
@@ -154,6 +156,15 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     if ('flipper' in selections) {
       hasFlipper = selections.flipper !== null;
       flipper.visible = hasFlipper;
+    }
+    if ('flamethrower' in selections) {
+      hasFlamethrower = selections.flamethrower !== null;
+      flamethrower.visible = hasFlamethrower;
+      if (!hasFlamethrower) {
+        flamethrowerActive = false;
+        flame.visible = false;
+        particles.forEach(p => { p.mesh.visible = false; });
+      }
     }
   }
 

@@ -839,4 +839,50 @@ describe('Car applyCustomisation()', () => {
     car.update(0.5);
     expect(car.flipperAngle).toBeGreaterThan(0);
   });
+
+  it('should hide the flamethrower barrel when flamethrower selection is null', () => {
+    const car = createCar();
+    car.applyCustomisation({ flamethrower: null });
+    expect(car.flamethrower.visible).toBe(false);
+  });
+
+  it('should show the flamethrower barrel when flamethrower selection is standard', () => {
+    const car = createCar();
+    car.flamethrower.visible = false;
+    car.applyCustomisation({ flamethrower: 'standard' });
+    expect(car.flamethrower.visible).toBe(true);
+  });
+
+  it('should prevent activateFlamethrower when flamethrower is deselected', () => {
+    const car = createCar();
+    car.applyCustomisation({ flamethrower: null });
+    car.activateFlamethrower();
+    car.update(0.016);
+    expect(car.flamethrowerActive).toBe(false);
+    expect(car.flame.visible).toBe(false);
+  });
+
+  it('should allow activateFlamethrower again when flamethrower is re-selected after being deselected', () => {
+    const car = createCar();
+    car.applyCustomisation({ flamethrower: null });
+    car.activateFlamethrower();
+    car.update(0.016);
+    expect(car.flamethrowerActive).toBe(false);
+    car.applyCustomisation({ flamethrower: 'standard' });
+    car.activateFlamethrower();
+    car.update(0.016);
+    expect(car.flamethrowerActive).toBe(true);
+    expect(car.flame.visible).toBe(true);
+  });
+
+  it('should hide flame and particles immediately when flamethrower is deselected while active', () => {
+    const car = createCar();
+    car.activateFlamethrower();
+    car.update(0.1);
+    car.applyCustomisation({ flamethrower: null });
+    expect(car.flame.visible).toBe(false);
+    car.particles.forEach(p => {
+      expect(p.mesh.visible).toBe(false);
+    });
+  });
 });
