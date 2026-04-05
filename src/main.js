@@ -94,6 +94,8 @@ let rafId = null;
 let flipImpulseApplied = false;
 let carFalling = false;
 let robotFalling = false;
+let carRidingCover = false;
+let robotRidingCover = false;
 
 function sinkIntoPit(entity, dt) {
   entity.group.position.y -= PIT_FALL_SPEED * dt;
@@ -137,15 +139,26 @@ function gameLoop(time) {
     car.update(dt);
     car.bounceOffWalls(ARENA_SIZE);
 
-    if (pit.isOpen() && pit.containsPoint(car.group.position.x, car.group.position.z)) {
-      carFalling = true;
+    if (pit.containsPoint(car.group.position.x, car.group.position.z)) {
+      if (pit.isOpen()) {
+        carFalling = true;
+        carRidingCover = false;
+      } else if (pit.isLowering()) {
+        carRidingCover = true;
+        car.group.position.y = car.groundY + pit.getCoverY();
+      }
+    } else if (carRidingCover) {
+      // Car drove off the cover while it was still lowering — restore to floor level
+      carRidingCover = false;
+      car.group.position.y = car.groundY;
     }
   } else {
     sinkIntoPit(car, dt);
     if (car.group.position.y < PIT_RESET_DEPTH) {
       car.reset();
-      car.group.position.y = 0;
+      car.group.position.y = car.groundY;
       carFalling = false;
+      carRidingCover = false;
     }
   }
 
@@ -153,15 +166,25 @@ function gameLoop(time) {
     robot.update(dt);
     robot.bounceOffWalls(ARENA_SIZE);
 
-    if (pit.isOpen() && pit.containsPoint(robot.group.position.x, robot.group.position.z)) {
-      robotFalling = true;
+    if (pit.containsPoint(robot.group.position.x, robot.group.position.z)) {
+      if (pit.isOpen()) {
+        robotFalling = true;
+        robotRidingCover = false;
+      } else if (pit.isLowering()) {
+        robotRidingCover = true;
+        robot.group.position.y = robot.groundY + pit.getCoverY();
+      }
+    } else if (robotRidingCover) {
+      // Robot moved off the cover while it was still lowering — restore to floor level
+      robotRidingCover = false;
+      robot.group.position.y = robot.groundY;
     }
   } else {
     sinkIntoPit(robot, dt);
     if (robot.group.position.y < PIT_RESET_DEPTH) {
       robot.reset();
-      robot.group.position.y = 0;
       robotFalling = false;
+      robotRidingCover = false;
     }
   }
 
@@ -217,6 +240,8 @@ function startLoop() {
   robot.reset();
   carFalling = false;
   robotFalling = false;
+  carRidingCover = false;
+  robotRidingCover = false;
   pitButton.reset();
   renderer.domElement.style.display = 'block';
   lastTime = performance.now();

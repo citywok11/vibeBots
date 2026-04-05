@@ -182,6 +182,17 @@ describe('Car wheels', () => {
     const bigWidth = big.wheels[0].geometry.parameters.height;
     expect(bigWidth).toBeGreaterThan(smallWidth);
   });
+
+  it('should expose groundY equal to the group resting height', () => {
+    const car = createCar({ x: 0, z: 0 }, { wheelRadius: 0.6 });
+    expect(car.groundY).toBeCloseTo(0.6 + 0.5); // wheelRadius + bodyHeight/2
+    expect(car.groundY).toBeCloseTo(car.group.position.y);
+  });
+
+  it('groundY should scale with custom wheel radius', () => {
+    const car = createCar({ x: 0, z: 0 }, { wheelRadius: 1.0 });
+    expect(car.groundY).toBeCloseTo(1.0 + 0.5);
+  });
 });
 
 describe('Car flipper', () => {

@@ -483,6 +483,7 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     get angularVelocity() { return angularVelocity; },
     get pitchTilt() { return pitchTilt; },
     get rollTilt() { return rollTilt; },
+    get groundY() { return groupY; },
     collisionRadius,
     accelerate,
     activateFlipper,
