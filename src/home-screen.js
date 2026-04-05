@@ -1,26 +1,26 @@
-export function createMenu(container) {
+export function createHomeScreen(container) {
   let open = false;
-  let keyBindingsCallback = null;
+  let playCallback = null;
+  let optionsCallback = null;
   let exitCallback = null;
 
   // Overlay
   const overlay = document.createElement('div');
-  overlay.className = 'menu-overlay';
+  overlay.className = 'home-screen-overlay';
   overlay.style.cssText = `
     display: none;
     position: fixed;
     top: 0; left: 0;
     width: 100%; height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
-    z-index: 100;
-    display: none;
+    background-color: rgba(0, 0, 0, 0.85);
+    z-index: 300;
     justify-content: center;
     align-items: center;
   `;
 
   // Panel
   const panel = document.createElement('div');
-  panel.className = 'menu-panel';
+  panel.className = 'home-screen-panel';
   panel.style.cssText = `
     background: #1a1a2e;
     border: 2px solid #555;
@@ -34,12 +34,12 @@ export function createMenu(container) {
 
   // Title
   const title = document.createElement('h1');
-  title.className = 'menu-title';
-  title.textContent = 'PAUSED';
+  title.className = 'home-screen-title';
+  title.textContent = 'VIBE BOTS';
   title.style.cssText = `
     margin: 0 0 30px 0;
-    font-size: 28px;
-    letter-spacing: 4px;
+    font-size: 36px;
+    letter-spacing: 6px;
     color: #ff4444;
   `;
   panel.appendChild(title);
@@ -47,7 +47,7 @@ export function createMenu(container) {
   // Button helper
   function createButton(label) {
     const btn = document.createElement('button');
-    btn.className = 'menu-button';
+    btn.className = 'home-screen-button';
     btn.textContent = label;
     btn.style.cssText = `
       display: block;
@@ -62,32 +62,24 @@ export function createMenu(container) {
       border-radius: 4px;
       cursor: pointer;
     `;
-    btn.addEventListener('mouseenter', () => {
-      btn.style.background = '#ff4444';
-    });
-    btn.addEventListener('mouseleave', () => {
-      btn.style.background = '#333';
-    });
+    btn.addEventListener('mouseenter', () => { btn.style.background = '#ff4444'; });
+    btn.addEventListener('mouseleave', () => { btn.style.background = '#333'; });
     return btn;
   }
 
-  // Resume button
-  const resumeBtn = createButton('Resume');
-  resumeBtn.addEventListener('click', () => close());
-  panel.appendChild(resumeBtn);
+  // Play button
+  const playBtn = createButton('Play');
+  playBtn.addEventListener('click', () => { if (playCallback) playCallback(); });
+  panel.appendChild(playBtn);
 
-  // Key Bindings button
-  const keyBindingsBtn = createButton('Key Bindings');
-  keyBindingsBtn.addEventListener('click', () => {
-    if (keyBindingsCallback) keyBindingsCallback();
-  });
-  panel.appendChild(keyBindingsBtn);
+  // Options button
+  const optionsBtn = createButton('Options');
+  optionsBtn.addEventListener('click', () => { if (optionsCallback) optionsCallback(); });
+  panel.appendChild(optionsBtn);
 
   // Exit button
   const exitBtn = createButton('Exit');
-  exitBtn.addEventListener('click', () => {
-    if (exitCallback) exitCallback();
-  });
+  exitBtn.addEventListener('click', () => { if (exitCallback) exitCallback(); });
   panel.appendChild(exitBtn);
 
   overlay.appendChild(panel);
@@ -97,35 +89,26 @@ export function createMenu(container) {
     return open;
   }
 
-  function openMenu() {
+  function openScreen() {
     open = true;
     overlay.style.display = 'flex';
   }
 
-  function close() {
+  function closeScreen() {
     open = false;
     overlay.style.display = 'none';
   }
 
-  function toggle() {
-    if (open) close();
-    else openMenu();
-  }
-
-  function onKeyBindings(cb) {
-    keyBindingsCallback = cb;
-  }
-
-  function onExit(cb) {
-    exitCallback = cb;
-  }
+  function onPlay(cb) { playCallback = cb; }
+  function onOptions(cb) { optionsCallback = cb; }
+  function onExit(cb) { exitCallback = cb; }
 
   return {
     isOpen,
-    open: openMenu,
-    close,
-    toggle,
-    onKeyBindings,
+    open: openScreen,
+    close: closeScreen,
+    onPlay,
+    onOptions,
     onExit,
   };
 }

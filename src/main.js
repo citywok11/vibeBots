@@ -4,6 +4,8 @@ import { createCar } from './car.js';
 import { createInputManager } from './input.js';
 import { createMenu } from './menu.js';
 import { createKeyBindingsScreen } from './keybindings-screen.js';
+import { createHomeScreen } from './home-screen.js';
+import { createOptionsScreen } from './options-screen.js';
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -42,23 +44,60 @@ window.addEventListener('keydown', (e) => input.handleKeyDown(e.code));
 window.addEventListener('keyup', (e) => input.handleKeyUp(e.code));
 
 // Menu & Key Bindings
+const homeScreen = createHomeScreen(document.body);
+const optionsScreen = createOptionsScreen(document.body);
 const menu = createMenu(document.body);
 const keyBindingsScreen = createKeyBindingsScreen(document.body, input);
+
+let gameStarted = false;
+
+// Show home screen on startup
+homeScreen.open();
+
+// Home screen callbacks
+homeScreen.onPlay(() => {
+  homeScreen.close();
+  gameStarted = true;
+});
+
+homeScreen.onOptions(() => {
+  homeScreen.close();
+  optionsScreen.open();
+});
+
+homeScreen.onExit(() => {
+  window.close();
+});
+
+// Options screen callbacks
+optionsScreen.onKeyBindings(() => {
+  optionsScreen.close();
+  keyBindingsScreen.onClose(() => { optionsScreen.open(); });
+  keyBindingsScreen.open();
+});
+
+optionsScreen.onBack(() => {
+  homeScreen.open();
+});
 
 window.addEventListener('keydown', (e) => {
   if (keyBindingsScreen.isOpen()) {
     keyBindingsScreen.handleKeyPress(e.code);
     return;
   }
-  if (e.code === 'Escape') menu.toggle();
+  if (gameStarted && e.code === 'Escape') menu.toggle();
 });
 
 menu.onKeyBindings(() => {
   menu.close();
+  keyBindingsScreen.onClose(() => { menu.open(); });
   keyBindingsScreen.open();
 });
-keyBindingsScreen.onClose(() => {
-  menu.open();
+
+menu.onExit(() => {
+  menu.close();
+  gameStarted = false;
+  homeScreen.open();
 });
 
 // Game loop
@@ -72,7 +111,7 @@ function gameLoop(time) {
   const dt = (time - lastTime) / 1000;
   lastTime = time;
 
-  paused = menu.isOpen();
+  paused = !gameStarted || menu.isOpen();
   if (paused) {
     renderer.render(scene, camera);
     return;

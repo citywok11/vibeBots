@@ -85,6 +85,23 @@ describe('Menu', () => {
     expect(called).toBe(true);
   });
 
+  it('should have an Exit button', () => {
+    menu.open();
+    const buttons = container.querySelectorAll('.menu-button');
+    const labels = Array.from(buttons).map(b => b.textContent);
+    expect(labels).toContain('Exit');
+  });
+
+  it('should call onExit callback when Exit is clicked', () => {
+    let called = false;
+    menu.onExit(() => { called = true; });
+    menu.open();
+    const buttons = container.querySelectorAll('.menu-button');
+    const exitBtn = Array.from(buttons).find(b => b.textContent === 'Exit');
+    exitBtn.click();
+    expect(called).toBe(true);
+  });
+
   it('should have a semi-transparent overlay', () => {
     menu.open();
     const overlay = container.querySelector('.menu-overlay');

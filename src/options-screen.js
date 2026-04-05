@@ -1,26 +1,25 @@
-export function createMenu(container) {
+export function createOptionsScreen(container) {
   let open = false;
   let keyBindingsCallback = null;
-  let exitCallback = null;
+  let backCallback = null;
 
   // Overlay
   const overlay = document.createElement('div');
-  overlay.className = 'menu-overlay';
+  overlay.className = 'options-screen-overlay';
   overlay.style.cssText = `
     display: none;
     position: fixed;
     top: 0; left: 0;
     width: 100%; height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
-    z-index: 100;
-    display: none;
+    background-color: rgba(0, 0, 0, 0.85);
+    z-index: 300;
     justify-content: center;
     align-items: center;
   `;
 
   // Panel
   const panel = document.createElement('div');
-  panel.className = 'menu-panel';
+  panel.className = 'options-screen-panel';
   panel.style.cssText = `
     background: #1a1a2e;
     border: 2px solid #555;
@@ -34,8 +33,8 @@ export function createMenu(container) {
 
   // Title
   const title = document.createElement('h1');
-  title.className = 'menu-title';
-  title.textContent = 'PAUSED';
+  title.className = 'options-screen-title';
+  title.textContent = 'OPTIONS';
   title.style.cssText = `
     margin: 0 0 30px 0;
     font-size: 28px;
@@ -47,7 +46,7 @@ export function createMenu(container) {
   // Button helper
   function createButton(label) {
     const btn = document.createElement('button');
-    btn.className = 'menu-button';
+    btn.className = 'options-screen-button';
     btn.textContent = label;
     btn.style.cssText = `
       display: block;
@@ -62,33 +61,23 @@ export function createMenu(container) {
       border-radius: 4px;
       cursor: pointer;
     `;
-    btn.addEventListener('mouseenter', () => {
-      btn.style.background = '#ff4444';
-    });
-    btn.addEventListener('mouseleave', () => {
-      btn.style.background = '#333';
-    });
+    btn.addEventListener('mouseenter', () => { btn.style.background = '#ff4444'; });
+    btn.addEventListener('mouseleave', () => { btn.style.background = '#333'; });
     return btn;
   }
 
-  // Resume button
-  const resumeBtn = createButton('Resume');
-  resumeBtn.addEventListener('click', () => close());
-  panel.appendChild(resumeBtn);
-
   // Key Bindings button
   const keyBindingsBtn = createButton('Key Bindings');
-  keyBindingsBtn.addEventListener('click', () => {
-    if (keyBindingsCallback) keyBindingsCallback();
-  });
+  keyBindingsBtn.addEventListener('click', () => { if (keyBindingsCallback) keyBindingsCallback(); });
   panel.appendChild(keyBindingsBtn);
 
-  // Exit button
-  const exitBtn = createButton('Exit');
-  exitBtn.addEventListener('click', () => {
-    if (exitCallback) exitCallback();
+  // Back button
+  const backBtn = createButton('Back');
+  backBtn.addEventListener('click', () => {
+    closeScreen();
+    if (backCallback) backCallback();
   });
-  panel.appendChild(exitBtn);
+  panel.appendChild(backBtn);
 
   overlay.appendChild(panel);
   container.appendChild(overlay);
@@ -97,35 +86,24 @@ export function createMenu(container) {
     return open;
   }
 
-  function openMenu() {
+  function openScreen() {
     open = true;
     overlay.style.display = 'flex';
   }
 
-  function close() {
+  function closeScreen() {
     open = false;
     overlay.style.display = 'none';
   }
 
-  function toggle() {
-    if (open) close();
-    else openMenu();
-  }
-
-  function onKeyBindings(cb) {
-    keyBindingsCallback = cb;
-  }
-
-  function onExit(cb) {
-    exitCallback = cb;
-  }
+  function onKeyBindings(cb) { keyBindingsCallback = cb; }
+  function onBack(cb) { backCallback = cb; }
 
   return {
     isOpen,
-    open: openMenu,
-    close,
-    toggle,
+    open: openScreen,
+    close: closeScreen,
     onKeyBindings,
-    onExit,
+    onBack,
   };
 }
