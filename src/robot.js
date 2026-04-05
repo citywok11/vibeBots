@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 
 const RESTITUTION = 0.6;
-const DEFAULT_SPEED = 8;
 
 export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
   const width = 2;
@@ -45,19 +44,15 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
     group.add(wheel);
   });
 
-  const speed = options.speed ?? DEFAULT_SPEED;
+  const mass = options.mass ?? 1;
+  const collisionRadius = Math.sqrt((width / 2) ** 2 + (depth / 2) ** 2);
 
-  // Give the robot a randomish diagonal initial velocity
-  const angle = options.angle ?? Math.PI / 4;
-  const velocity = {
-    x: Math.cos(angle) * speed,
-    z: Math.sin(angle) * speed,
-  };
+  const velocity = { x: 0, z: 0 };
 
   function reset() {
     group.position.set(startPos.x, groupY, startPos.z);
-    velocity.x = Math.cos(angle) * speed;
-    velocity.z = Math.sin(angle) * speed;
+    velocity.x = 0;
+    velocity.z = 0;
   }
 
   function bounceOffWalls(arenaSize) {
@@ -101,6 +96,8 @@ export function createRobot(startPos = { x: 0, z: 0 }, options = {}) {
   return {
     group,
     mesh: body,
+    get mass() { return mass; },
+    collisionRadius,
     get velocity() { return velocity; },
     bounceOffWalls,
     update,
