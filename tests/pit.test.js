@@ -112,6 +112,25 @@ describe('Pit', () => {
     expect(pit.isLowering()).toBe(false);
   });
 
+  it('should expose getCoverY() returning 0 initially', () => {
+    const pit = createPit(50);
+    expect(pit.getCoverY()).toBe(0);
+  });
+
+  it('should return a negative getCoverY() while lowering', () => {
+    const pit = createPit(50);
+    pit.activate();
+    pit.update(0.5);
+    expect(pit.getCoverY()).toBeLessThan(0);
+  });
+
+  it('getCoverY() should match cover.position.y at all times', () => {
+    const pit = createPit(50);
+    pit.activate();
+    pit.update(0.3);
+    expect(pit.getCoverY()).toBe(pit.cover.position.y);
+  });
+
   it('containsPoint returns true for a point at the center', () => {
     const pit = createPit(50);
     expect(pit.containsPoint(0, 0)).toBe(true);

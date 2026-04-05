@@ -71,6 +71,7 @@ export function createPit(arenaSize, { pitSize = DEFAULT_PIT_SIZE } = {}) {
 
   function isOpen() { return _isOpen; }
   function isLowering() { return _isLowering; }
+  function getCoverY() { return coverY; }
 
-  return { group, cover, depthFloor, activate, update, containsPoint, isOpen, isLowering, pitSize };
+  return { group, cover, depthFloor, activate, update, containsPoint, isOpen, isLowering, getCoverY, pitSize };
 }
