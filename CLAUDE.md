@@ -30,6 +30,7 @@ main.js (entry point, game loop, screen orchestration)
   ├── car.js                — player car (body, wheels, flipper, physics)
   ├── robot.js              — dummy robot opponent (constant velocity, wall bounce)
   ├── input.js              — action-to-key binding system
+  ├── arena-flipper.js      — arena flipper hazard (state machine, contact launch)
   ├── home-screen.js        — title screen (Play, Options, Exit)
   ├── options-screen.js     — options menu (Key Bindings, Back)
   ├── menu.js               — in-game pause menu (Customise, Options, Exit)
@@ -83,6 +84,7 @@ In-Game (Escape)
 - Pause menu (Escape) with key rebinding and exit to home
 - Fully configurable key bindings
 - Dummy robot opponent (bounces around arena)
+- Arena flipper hazard (auto-firing, contact-based robot launching)
 
 ### Planned features (not yet built)
 - Enemy robots / AI opponents (currently only a passive dummy exists)
