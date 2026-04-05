@@ -67,8 +67,8 @@ export function createHomeScreen(container) {
     return btn;
   }
 
-  // Play button
-  const playBtn = createButton('Play');
+  // Sandbox Mode button
+  const playBtn = createButton('Sandbox Mode');
   playBtn.addEventListener('click', () => { if (playCallback) playCallback(); });
   panel.appendChild(playBtn);
 

@@ -20,6 +20,7 @@ camera.lookAt(0, 0, 0);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
+renderer.domElement.style.display = 'none';
 document.body.appendChild(renderer.domElement);
 
 // Lighting
@@ -87,6 +88,8 @@ function gameLoop(time) {
 }
 
 function startLoop() {
+  car.reset();
+  renderer.domElement.style.display = 'block';
   lastTime = performance.now();
   if (!rafId) rafId = requestAnimationFrame(gameLoop);
 }
@@ -96,6 +99,7 @@ function stopLoop() {
     cancelAnimationFrame(rafId);
     rafId = null;
   }
+  renderer.domElement.style.display = 'none';
 }
 
 const game = createGameController({ homeScreen, menu, onStart: startLoop, onStop: stopLoop });

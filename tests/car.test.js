@@ -493,4 +493,39 @@ describe('Car sub-component collision detection (wheels and flipper)', () => {
       expect(flipperTip).toBeGreaterThanOrEqual(-half - 0.001);
     });
   });
+
+  describe('reset()', () => {
+    it('should restore position to startPos', () => {
+      const car = createCar({ x: 5, z: 10 });
+      car.accelerate(20);
+      car.update(1);
+      car.reset();
+      expect(car.group.position.x).toBe(5);
+      expect(car.group.position.z).toBe(10);
+    });
+
+    it('should zero out velocity', () => {
+      const car = createCar();
+      car.accelerate(20);
+      car.reset();
+      expect(car.velocity.x).toBe(0);
+      expect(car.velocity.z).toBe(0);
+    });
+
+    it('should reset rotation to 0', () => {
+      const car = createCar();
+      car.turnLeft(1.5);
+      car.reset();
+      expect(car.rotation).toBe(0);
+      expect(car.group.rotation.y).toBe(0);
+    });
+
+    it('should reset flipper angle to 0', () => {
+      const car = createCar();
+      car.activateFlipper();
+      car.update(0.5);
+      car.reset();
+      expect(car.flipperAngle).toBe(0);
+    });
+  });
 });
