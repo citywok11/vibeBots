@@ -492,19 +492,45 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
     group.rotation.y = rotation;
   }
 
-  function bounceOffWalls(arenaSize) {
+  function bounceOffWalls(arenaSize, wallHeight = Infinity, wallThickness = 0) {
     const half = arenaSize / 2;
+    const halfT = wallThickness / 2;
     let bounced = false;
+
+    // The entity's lowest point in world space
+    const bottomY = group.position.y - groupY;
+
+    // If the entity is above the wall top, no XZ collision — it can fly over.
+    // But if it is within the wall footprint on XZ, land on the wall top.
+    if (wallHeight !== Infinity && bottomY >= wallHeight) {
+      // Wall-top landing: if the entity's XZ centre is within any wall's
+      // footprint and it is descending, land on the wall top.
+      if (wallThickness > 0 && velocityY <= 0) {
+        const wallTopY = wallHeight + groupY; // group Y when standing on wall top
+        let onWall = false;
+        // East/West walls span the full arena length in Z; their X extent is [half-halfT, half+halfT]
+        if (Math.abs(group.position.z) <= half + halfT) {
+          if (group.position.x >= half - halfT && group.position.x <= half + halfT) onWall = true;
+          if (group.position.x <= -(half - halfT) && group.position.x >= -(half + halfT)) onWall = true;
+        }
+        // North/South walls span the full arena length in X; their Z extent is [half-halfT, half+halfT]
+        if (Math.abs(group.position.x) <= half + halfT) {
+          if (group.position.z >= half - halfT && group.position.z <= half + halfT) onWall = true;
+          if (group.position.z <= -(half - halfT) && group.position.z >= -(half + halfT)) onWall = true;
+        }
+        if (onWall) {
+          group.position.y = wallTopY;
+          velocityY = 0;
+          return { bounced: false };
+        }
+      }
+      return { bounced: false };
+    }
 
     const cosR = Math.cos(rotation);
     const sinR = Math.sin(rotation);
 
     // The car is asymmetric in depth: the flipper projects only from the front.
-    // Use the four corners of the effective bounding shape to compute the true
-    // axis-aligned extents at any rotation, rather than a symmetric rectangle.
-    //   halfW          = width/2 + AXLE_GAP + currentWheelWidth (wheels extend past each side)
-    //   frontHalfDepth = depth/2 + currentFlipperDepth*cos(angle) (flipper at front)
-    //   backHalfDepth  = depth/2 (back of body, no flipper)
     const halfW = width / 2 + AXLE_GAP + currentWheelWidth;
     const frontHalfDepth = depth / 2 + (hasFlipper ? currentFlipperDepth * Math.cos(flipperAngle) : 0);
     const backHalfDepth = depth / 2;
@@ -523,24 +549,71 @@ export function createCar(startPos = { x: 0, z: 0 }, options = {}) {
       }
     }
 
-    if (group.position.x + minX <= -half) {
-      group.position.x = -half - minX;
-      velocity.x = Math.abs(velocity.x) * RESTITUTION;
-      bounced = true;
-    } else if (group.position.x + maxX >= half) {
-      group.position.x = half - maxX;
-      velocity.x = -Math.abs(velocity.x) * RESTITUTION;
-      bounced = true;
+    // The wall has physical thickness. The inner face is at half - halfT and the
+    // outer face is at half + halfT.
+    const innerFace = half - halfT;
+    const outerFace = half + halfT;
+
+    // East / West (X axis)
+    if (group.position.x >= 0) {
+      if (group.position.x <= half) {
+        if (group.position.x + maxX >= innerFace) {
+          group.position.x = innerFace - maxX;
+          velocity.x = -Math.abs(velocity.x) * RESTITUTION;
+          bounced = true;
+        }
+      } else {
+        if (group.position.x + minX <= outerFace) {
+          group.position.x = outerFace - minX;
+          velocity.x = Math.abs(velocity.x) * RESTITUTION;
+          bounced = true;
+        }
+      }
+    } else {
+      if (group.position.x >= -half) {
+        if (group.position.x + minX <= -innerFace) {
+          group.position.x = -innerFace - minX;
+          velocity.x = Math.abs(velocity.x) * RESTITUTION;
+          bounced = true;
+        }
+      } else {
+        if (group.position.x + maxX >= -outerFace) {
+          group.position.x = -outerFace - maxX;
+          velocity.x = -Math.abs(velocity.x) * RESTITUTION;
+          bounced = true;
+        }
+      }
     }
 
-    if (group.position.z + minZ <= -half) {
-      group.position.z = -half - minZ;
-      velocity.z = Math.abs(velocity.z) * RESTITUTION;
-      bounced = true;
-    } else if (group.position.z + maxZ >= half) {
-      group.position.z = half - maxZ;
-      velocity.z = -Math.abs(velocity.z) * RESTITUTION;
-      bounced = true;
+    // North / South (Z axis)
+    if (group.position.z >= 0) {
+      if (group.position.z <= half) {
+        if (group.position.z + maxZ >= innerFace) {
+          group.position.z = innerFace - maxZ;
+          velocity.z = -Math.abs(velocity.z) * RESTITUTION;
+          bounced = true;
+        }
+      } else {
+        if (group.position.z + minZ <= outerFace) {
+          group.position.z = outerFace - minZ;
+          velocity.z = Math.abs(velocity.z) * RESTITUTION;
+          bounced = true;
+        }
+      }
+    } else {
+      if (group.position.z >= -half) {
+        if (group.position.z + minZ <= -innerFace) {
+          group.position.z = -innerFace - minZ;
+          velocity.z = Math.abs(velocity.z) * RESTITUTION;
+          bounced = true;
+        }
+      } else {
+        if (group.position.z + maxZ >= -outerFace) {
+          group.position.z = -outerFace - maxZ;
+          velocity.z = -Math.abs(velocity.z) * RESTITUTION;
+          bounced = true;
+        }
+      }
     }
 
     return { bounced };

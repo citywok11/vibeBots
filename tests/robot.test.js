@@ -196,15 +196,12 @@ describe('Robot', () => {
     it('should clamp position so no corner extends beyond the wall when rotated', () => {
       const arenaSize = 50;
       const half = arenaSize / 2;
-      const robot = createRobot({ x: 40, z: 0 }); // well past the east wall
+      const robot = createRobot({ x: 24, z: 0 }); // just past the east wall inner face
       robot.group.rotation.y = Math.PI / 4;
+      robot.velocity.x = 5;
       robot.bounceOffWalls(arenaSize);
 
       // After clamping, the rotated AABB maxX extent must sit inside the arena
-      // Effective extents include wheels: halfW = width/2 + AXLE_GAP + wheelWidth
-      //   = 1 + 0.3 + 0.3 = 1.6
-      // halfD = max(depth/2, wheelOffsetZ + wheelRadius)
-      //   = max(1.5, (1.5-0.4) + 0.6) = max(1.5, 1.7) = 1.7
       const cosR = Math.cos(Math.PI / 4);
       const sinR = Math.sin(Math.PI / 4);
       const halfW = 1.6;
@@ -284,7 +281,8 @@ describe('Robot', () => {
       const half = arenaSize / 2;
       // effectiveHalfWidth = width/2 + AXLE_GAP + wheelWidth = 1 + 0.3 + 0.3 = 1.6
       const effectiveHalfWidth = 1.6;
-      const robot = createRobot({ x: 40, z: 0 }); // well past the east wall
+      const robot = createRobot({ x: 24, z: 0 }); // just past the east wall inner face
+      robot.velocity.x = 5;
       robot.bounceOffWalls(arenaSize);
       expect(robot.group.position.x + effectiveHalfWidth).toBeLessThanOrEqual(half + 0.001);
     });
@@ -313,9 +311,156 @@ describe('Robot', () => {
       const half = arenaSize / 2;
       // effectiveHalfDepth = max(depth/2, wheelOffsetZ + wheelRadius) = max(1.5, 1.7) = 1.7
       const effectiveHalfDepth = 1.7;
-      const robot = createRobot({ x: 0, z: 40 }); // well past the south wall
+      const robot = createRobot({ x: 0, z: 24 }); // just past the south wall inner face
+      robot.velocity.z = 5;
       robot.bounceOffWalls(arenaSize);
       expect(robot.group.position.z + effectiveHalfDepth).toBeLessThanOrEqual(half + 0.001);
+    });
+  });
+
+  describe('height-aware wall collision (flipping out of arena)', () => {
+    // Arena wall height = 2.  Robot groupY = wheelRadius + height/2 = 0.6 + 0.5 = 1.1
+    // The robot's lowest point is at group.position.y - groupY.
+    // When on the ground: bottomY = 1.1 - 1.1 = 0 (below wall top of 2).
+    // When flipped high: e.g. group.position.y = 5 → bottomY = 5 - 1.1 = 3.9 (above wall top).
+    const WALL_HEIGHT = 2;
+
+    it('should bounce off the wall when below wall height (grounded)', () => {
+      const arenaSize = 50;
+      const robot = createRobot({ x: 24, z: 0 });
+      robot.velocity.x = 10;
+      const result = robot.bounceOffWalls(arenaSize, WALL_HEIGHT);
+      expect(result.bounced).toBe(true);
+      expect(robot.velocity.x).toBeLessThan(0);
+    });
+
+    it('should NOT bounce when airborne and lowest point is above wall height', () => {
+      const arenaSize = 50;
+      const robot = createRobot({ x: 24, z: 0 });
+      // Lift the robot so bottomY = group.position.y - groupY >= WALL_HEIGHT
+      // groupY = 1.1, so need position.y >= 1.1 + 2 = 3.1
+      robot.group.position.y = 4;
+      robot.velocity.x = 10;
+      const result = robot.bounceOffWalls(arenaSize, WALL_HEIGHT);
+      expect(result.bounced).toBe(false);
+      // Velocity should be unchanged — robot sailed over the wall
+      expect(robot.velocity.x).toBe(10);
+    });
+
+    it('should still bounce when airborne but lowest point is below wall top', () => {
+      const arenaSize = 50;
+      const robot = createRobot({ x: 24, z: 0 });
+      // Lift slightly — bottomY = 2.5 - 1.1 = 1.4, still below wall height of 2
+      robot.group.position.y = 2.5;
+      robot.velocity.x = 10;
+      const result = robot.bounceOffWalls(arenaSize, WALL_HEIGHT);
+      expect(result.bounced).toBe(true);
+    });
+
+    it('should NOT bounce when exactly at wall height threshold', () => {
+      const arenaSize = 50;
+      const robot = createRobot({ x: 24, z: 0 });
+      // Set position so bottomY = exactly WALL_HEIGHT
+      // bottomY = group.position.y - groupY = WALL_HEIGHT → position.y = groupY + WALL_HEIGHT
+      robot.group.position.y = robot.groundY + WALL_HEIGHT;
+      robot.velocity.x = 10;
+      const result = robot.bounceOffWalls(arenaSize, WALL_HEIGHT);
+      expect(result.bounced).toBe(false);
+    });
+
+    it('should allow the robot to fly past all four walls when high enough', () => {
+      const arenaSize = 50;
+      const half = arenaSize / 2;
+
+      // Test east wall
+      const r1 = createRobot({ x: half + 5, z: 0 });
+      r1.group.position.y = 4;
+      r1.velocity.x = 10;
+      expect(r1.bounceOffWalls(arenaSize, WALL_HEIGHT).bounced).toBe(false);
+
+      // Test west wall
+      const r2 = createRobot({ x: -(half + 5), z: 0 });
+      r2.group.position.y = 4;
+      r2.velocity.x = -10;
+      expect(r2.bounceOffWalls(arenaSize, WALL_HEIGHT).bounced).toBe(false);
+
+      // Test north wall
+      const r3 = createRobot({ x: 0, z: -(half + 5) });
+      r3.group.position.y = 4;
+      r3.velocity.z = -10;
+      expect(r3.bounceOffWalls(arenaSize, WALL_HEIGHT).bounced).toBe(false);
+
+      // Test south wall
+      const r4 = createRobot({ x: 0, z: half + 5 });
+      r4.group.position.y = 4;
+      r4.velocity.z = 10;
+      expect(r4.bounceOffWalls(arenaSize, WALL_HEIGHT).bounced).toBe(false);
+    });
+
+    it('should still bounce when no wallHeight is passed (backwards compatible)', () => {
+      const arenaSize = 50;
+      const robot = createRobot({ x: 24, z: 0 });
+      robot.group.position.y = 100; // very high
+      robot.velocity.x = 10;
+      // No wallHeight param → defaults to Infinity → always collides
+      const result = robot.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(true);
+    });
+
+    it('should bounce off the outer face of the wall when outside the arena', () => {
+      const arenaSize = 50;
+      const half = arenaSize / 2;
+      const WALL_HEIGHT = 2;
+      const WALL_THICKNESS = 0.5;
+      const outerFace = half + WALL_THICKNESS / 2;
+      // Robot just outside the east wall, moving inward
+      const robot = createRobot({ x: outerFace + 0.5, z: 0 });
+      robot.velocity.x = -10;
+      const result = robot.bounceOffWalls(arenaSize, WALL_HEIGHT, WALL_THICKNESS);
+      expect(result.bounced).toBe(true);
+      expect(robot.velocity.x).toBeGreaterThan(0); // reversed away from wall
+    });
+
+    it('should not bounce when outside the arena and far from wall', () => {
+      const arenaSize = 50;
+      const half = arenaSize / 2;
+      const WALL_HEIGHT = 2;
+      const WALL_THICKNESS = 0.5;
+      // Robot far outside the east wall
+      const robot = createRobot({ x: half + 5, z: 0 });
+      robot.velocity.x = 10; // moving away
+      const result = robot.bounceOffWalls(arenaSize, WALL_HEIGHT, WALL_THICKNESS);
+      expect(result.bounced).toBe(false);
+    });
+
+    it('should land on the wall top when above wall height and over the wall footprint', () => {
+      const arenaSize = 50;
+      const half = arenaSize / 2;
+      const WALL_HEIGHT = 2;
+      const WALL_THICKNESS = 0.5;
+      const robot = createRobot({ x: half, z: 0 }); // on the east wall's X centre
+      robot.group.position.y = WALL_HEIGHT + robot.groundY + 0.5; // above the wall
+      robot.velocityY = -2; // descending
+      const result = robot.bounceOffWalls(arenaSize, WALL_HEIGHT, WALL_THICKNESS);
+      expect(result.bounced).toBe(false);
+      // Should land on wall top
+      expect(robot.group.position.y).toBeCloseTo(WALL_HEIGHT + robot.groundY, 5);
+      expect(robot.velocityY).toBe(0);
+    });
+
+    it('should not land on wall top when not over wall footprint', () => {
+      const arenaSize = 50;
+      const half = arenaSize / 2;
+      const WALL_HEIGHT = 2;
+      const WALL_THICKNESS = 0.5;
+      const robot = createRobot({ x: 10, z: 0 }); // far from any wall
+      robot.group.position.y = WALL_HEIGHT + robot.groundY + 0.5;
+      robot.velocityY = -2;
+      const originalY = robot.group.position.y;
+      const result = robot.bounceOffWalls(arenaSize, WALL_HEIGHT, WALL_THICKNESS);
+      expect(result.bounced).toBe(false);
+      // Should NOT land — Y unchanged
+      expect(robot.group.position.y).toBe(originalY);
     });
   });
 

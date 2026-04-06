@@ -302,9 +302,10 @@ describe('Car velocity and wall collision', () => {
 
   it('should bounce off the north wall (-Z) and reverse Z velocity', () => {
     const arenaSize = 50;
-    const car = createCar({ x: 0, z: -24 });
-    car.accelerate(30);
-    car.update(1); // move into the wall
+    // Place car so its front edge (flipper tip) is just past the north wall
+    // frontHalfDepth = 1.5 + 1.2 = 2.7, so at z = -23, front tip = -23 - 2.7 = -25.7
+    const car = createCar({ x: 0, z: -23 });
+    car.velocity.z = -10;
     const result = car.bounceOffWalls(arenaSize);
 
     expect(result.bounced).toBe(true);
@@ -314,9 +315,11 @@ describe('Car velocity and wall collision', () => {
 
   it('should bounce off the south wall (+Z) and reverse Z velocity', () => {
     const arenaSize = 50;
-    const car = createCar({ x: 0, z: 24 });
-    car.accelerate(-30);
-    car.update(1);
+    // Place car facing south (rotation=π) so flipper faces south
+    // At z=23, flipper tip past south wall
+    const car = createCar({ x: 0, z: 23 });
+    car.turnLeft(Math.PI);
+    car.velocity.z = 10;
     const result = car.bounceOffWalls(arenaSize);
 
     expect(result.bounced).toBe(true);
@@ -326,10 +329,10 @@ describe('Car velocity and wall collision', () => {
 
   it('should bounce off the west wall (-X) and reverse X velocity', () => {
     const arenaSize = 50;
-    const car = createCar({ x: -24, z: 0 });
+    // Rotate 90° left so flipper faces -X, at x=-23 flipper extends past wall
+    const car = createCar({ x: -23, z: 0 });
     car.turnLeft(Math.PI / 2);
-    car.accelerate(30);
-    car.update(1);
+    car.velocity.x = -10;
     const result = car.bounceOffWalls(arenaSize);
 
     expect(result.bounced).toBe(true);
@@ -339,10 +342,10 @@ describe('Car velocity and wall collision', () => {
 
   it('should bounce off the east wall (+X) and reverse X velocity', () => {
     const arenaSize = 50;
-    const car = createCar({ x: 24, z: 0 });
+    // Rotate 90° right so flipper faces +X, at x=23 flipper extends past wall
+    const car = createCar({ x: 23, z: 0 });
     car.turnRight(Math.PI / 2);
-    car.accelerate(30);
-    car.update(1);
+    car.velocity.x = 10;
     const result = car.bounceOffWalls(arenaSize);
 
     expect(result.bounced).toBe(true);
@@ -362,9 +365,9 @@ describe('Car velocity and wall collision', () => {
 
   it('should lose energy on bounce (restitution < 1)', () => {
     const arenaSize = 50;
-    const car = createCar({ x: 0, z: -24 });
-    car.accelerate(30);
-    car.update(1);
+    // Place car so front edge extends past north wall
+    const car = createCar({ x: 0, z: -23 });
+    car.velocity.z = -10;
     const speedBefore = Math.abs(car.velocity.z);
     car.bounceOffWalls(arenaSize);
     const speedAfter = Math.abs(car.velocity.z);
@@ -388,28 +391,26 @@ describe('Car velocity and wall collision', () => {
     const arenaSize = 50;
     const half = arenaSize / 2;
     // Car is 2 wide x 3 deep. At rotation=0, depth is along Z.
-    // Car half-depth = 1.5, so car edge should stop at wall, not center.
+    // frontHalfDepth = 1.5 + 1.2 = 2.7, so at z = -(half - 1) = -24, front tip = -24 - 2.7 = -26.7
     const car = createCar({ x: 0, z: -(half - 1) });
-    car.accelerate(10);
-    car.update(1);
+    car.velocity.z = -10;
     car.bounceOffWalls(arenaSize);
 
-    // Car center should be at least half-depth (1.5) away from the wall
-    expect(car.group.position.z).toBeGreaterThanOrEqual(-half + 1.5);
+    // Car center should be at least frontHalfDepth (2.7) away from the wall
+    expect(car.group.position.z).toBeGreaterThanOrEqual(-half + 2.7);
   });
 
   it('should account for car width when bouncing sideways', () => {
     const arenaSize = 50;
     const half = arenaSize / 2;
-    // Car is 2 wide. At rotation=0, width is along X. Half-width = 1.
+    // Car rotated 90°: depth axis is now along X.
+    // frontHalfDepth = 2.7 at rotation π/2: maxX ≈ 2.7
     const car = createCar({ x: half - 0.5, z: 0 });
     car.turnRight(Math.PI / 2);
-    car.accelerate(10);
-    car.update(1);
+    car.velocity.x = 10;
     car.bounceOffWalls(arenaSize);
 
-    // Car center should be at least half-depth (1.5) from east wall when rotated 90 degrees
-    // (depth axis is now along X)
+    // Car center should be at least frontHalfDepth (2.7) from east wall when rotated 90 degrees
     expect(car.group.position.x).toBeLessThanOrEqual(half - 1.5);
   });
 
@@ -418,23 +419,21 @@ describe('Car velocity and wall collision', () => {
     const half = arenaSize / 2;
     const car = createCar({ x: 0, z: -(half - 1) });
     car.turnLeft(Math.PI / 4); // 45 degrees
-    car.accelerate(10);
-    car.update(1);
+    car.velocity.z = -10;
     car.bounceOffWalls(arenaSize);
 
-    // At 45 degrees, the car's Z footprint is:
-    // (|cos(45)| * depth + |sin(45)| * width) / 2
-    // = (0.707 * 3 + 0.707 * 2) / 2 ≈ 1.77
+    // At 45 degrees, the car's Z footprint is determined by the oriented AABB
+    // frontHalfDepth = 2.7, backHalfDepth = 1.5, halfW = 1.3 (with AXLE_GAP)
+    // The expected margin from the wall depends on the oriented bounding box
     const expectedMargin = (Math.abs(Math.cos(Math.PI / 4)) * 3 + Math.abs(Math.sin(Math.PI / 4)) * 2) / 2;
     expect(car.group.position.z).toBeGreaterThanOrEqual(-half + expectedMargin - 0.01);
   });
 
   it('should preserve bounce velocity even when accelerating next frame', () => {
     const arenaSize = 50;
-    const car = createCar({ x: 0, z: -24 });
-    // Build up speed toward the wall
-    car.accelerate(50);
-    car.update(1);
+    // Place car so front edge extends past north wall
+    const car = createCar({ x: 0, z: -23 });
+    car.velocity.z = -20;
     car.bounceOffWalls(arenaSize);
 
     const bounceVelocity = car.velocity.z;
@@ -487,10 +486,11 @@ describe('Car sub-component collision detection (wheels and flipper)', () => {
     it('should clamp position so no wheel extends beyond the arena wall', () => {
       const arenaSize = 50;
       const half = arenaSize / 2;
-      // effectiveHalfWidth = width/2 + wheelWidth = 1 + (0.6 * 0.5) = 1.3
-      const effectiveHalfWidth = 2 / 2 + 0.6 * 0.5;
+      // effectiveHalfWidth = width/2 + AXLE_GAP + wheelWidth = 1 + 0.3 + 0.3 = 1.6
+      const effectiveHalfWidth = 2 / 2 + 0.3 + 0.6 * 0.5;
 
-      const car = createCar({ x: 40, z: 0 }); // well past the east wall
+      const car = createCar({ x: 24.5, z: 0 }); // just past the east wall inner face
+      car.velocity.x = 5;
       car.bounceOffWalls(arenaSize);
       // After clamping, the wheel outer edge must sit at or inside the arena wall
       expect(car.group.position.x + effectiveHalfWidth).toBeLessThanOrEqual(half + 0.001);
@@ -525,12 +525,13 @@ describe('Car sub-component collision detection (wheels and flipper)', () => {
     });
 
     it('should clamp south wall collision to back half-depth when facing north', () => {
-      // Car launched well past south wall (rotation=0, back facing south).
+      // Car launched just past south wall (rotation=0, back facing south).
       // After clamping, the back edge (car.z + backHalfDepth) should sit at the wall.
       const arenaSize = 50;
       const half = arenaSize / 2;
       const backHalfDepth = CAR_DEPTH / 2;
-      const car = createCar({ x: 0, z: 40 });
+      const car = createCar({ x: 0, z: 24 }); // just past the south wall boundary
+      car.velocity.z = 5;
       car.bounceOffWalls(arenaSize);
       expect(car.group.position.z + backHalfDepth).toBeCloseTo(half, 5);
     });
@@ -549,8 +550,9 @@ describe('Car sub-component collision detection (wheels and flipper)', () => {
       const arenaSize = 50;
       const half = arenaSize / 2;
       const backHalfDepth = CAR_DEPTH / 2;
-      const car = createCar({ x: 0, z: -40 });
+      const car = createCar({ x: 0, z: -24 }); // just past the north wall boundary
       car.turnLeft(Math.PI);
+      car.velocity.z = -5;
       car.bounceOffWalls(arenaSize);
       // Back of car (at car.z - backHalfDepth when rotation=π) sits at north wall
       expect(car.group.position.z - backHalfDepth).toBeCloseTo(-half, 5);
@@ -638,11 +640,146 @@ describe('Car sub-component collision detection (wheels and flipper)', () => {
       const flipperDepth = 1.2;
       const halfBodyDepth = 3 / 2; // car depth / 2
 
-      const car = createCar({ x: 0, z: -40 }); // well past the north wall
+      const car = createCar({ x: 0, z: -24 }); // just past the north wall boundary
+      car.velocity.z = -10;
       car.bounceOffWalls(arenaSize);
       // Flipper tip in car-group space: position.z - halfBodyDepth - flipperDepth*cos(0)
       const flipperTip = car.group.position.z - halfBodyDepth - flipperDepth;
       expect(flipperTip).toBeGreaterThanOrEqual(-half - 0.001);
+    });
+  });
+
+  describe('height-aware wall collision (flipping out of arena)', () => {
+    // Arena wall height = 2.  Car groupY = wheelRadius + height/2 = 0.6 + 0.5 = 1.1
+    // The car's lowest point is at group.position.y - groupY.
+    // When on the ground: bottomY = 1.1 - 1.1 = 0 (below wall top of 2).
+    // When flipped high: e.g. group.position.y = 5 → bottomY = 5 - 1.1 = 3.9 (above wall top).
+    const WALL_HEIGHT = 2;
+
+    it('should bounce off the wall when below wall height (grounded)', () => {
+      const arenaSize = 50;
+      const car = createCar({ x: 24, z: 0 });
+      car.accelerate(10); // give it some velocity toward the wall
+      const result = car.bounceOffWalls(arenaSize, WALL_HEIGHT);
+      expect(result.bounced).toBe(true);
+    });
+
+    it('should NOT bounce when airborne and lowest point is above wall height', () => {
+      const arenaSize = 50;
+      const car = createCar({ x: 24, z: 0 });
+      // Lift the car so bottomY = group.position.y - groupY >= WALL_HEIGHT
+      // groupY = 1.1, so need position.y >= 1.1 + 2 = 3.1
+      car.group.position.y = 4;
+      car.accelerate(10);
+      const result = car.bounceOffWalls(arenaSize, WALL_HEIGHT);
+      expect(result.bounced).toBe(false);
+    });
+
+    it('should still bounce when airborne but lowest point is below wall top', () => {
+      const arenaSize = 50;
+      const car = createCar({ x: 24, z: 0 });
+      // Lift slightly — bottomY = 2.5 - 1.1 = 1.4, still below wall height of 2
+      car.group.position.y = 2.5;
+      car.accelerate(10);
+      const result = car.bounceOffWalls(arenaSize, WALL_HEIGHT);
+      expect(result.bounced).toBe(true);
+    });
+
+    it('should NOT bounce when exactly at wall height threshold', () => {
+      const arenaSize = 50;
+      const car = createCar({ x: 24, z: 0 });
+      // Set position so bottomY = exactly WALL_HEIGHT
+      car.group.position.y = car.groundY + WALL_HEIGHT;
+      car.accelerate(10);
+      const result = car.bounceOffWalls(arenaSize, WALL_HEIGHT);
+      expect(result.bounced).toBe(false);
+    });
+
+    it('should allow the car to fly past all four walls when high enough', () => {
+      const arenaSize = 50;
+      const half = arenaSize / 2;
+
+      const c1 = createCar({ x: half + 5, z: 0 });
+      c1.group.position.y = 4;
+      expect(c1.bounceOffWalls(arenaSize, WALL_HEIGHT).bounced).toBe(false);
+
+      const c2 = createCar({ x: -(half + 5), z: 0 });
+      c2.group.position.y = 4;
+      expect(c2.bounceOffWalls(arenaSize, WALL_HEIGHT).bounced).toBe(false);
+
+      const c3 = createCar({ x: 0, z: -(half + 5) });
+      c3.group.position.y = 4;
+      expect(c3.bounceOffWalls(arenaSize, WALL_HEIGHT).bounced).toBe(false);
+
+      const c4 = createCar({ x: 0, z: half + 5 });
+      c4.group.position.y = 4;
+      expect(c4.bounceOffWalls(arenaSize, WALL_HEIGHT).bounced).toBe(false);
+    });
+
+    it('should still bounce when no wallHeight is passed (backwards compatible)', () => {
+      const arenaSize = 50;
+      const car = createCar({ x: 24, z: 0 });
+      car.group.position.y = 100; // very high
+      car.accelerate(10);
+      // No wallHeight param → defaults to Infinity → always collides
+      const result = car.bounceOffWalls(arenaSize);
+      expect(result.bounced).toBe(true);
+    });
+
+    it('should bounce off the outer face of the wall when outside the arena', () => {
+      const arenaSize = 50;
+      const half = arenaSize / 2;
+      const WALL_HEIGHT = 2;
+      const WALL_THICKNESS = 0.5;
+      const outerFace = half + WALL_THICKNESS / 2;
+      // Car just outside the east wall, moving inward
+      const car = createCar({ x: outerFace + 0.5, z: 0 });
+      car.velocity.x = -10;
+      const result = car.bounceOffWalls(arenaSize, WALL_HEIGHT, WALL_THICKNESS);
+      expect(result.bounced).toBe(true);
+      expect(car.velocity.x).toBeGreaterThan(0); // reversed away from wall
+    });
+
+    it('should not bounce when outside the arena and moving away from wall', () => {
+      const arenaSize = 50;
+      const half = arenaSize / 2;
+      const WALL_HEIGHT = 2;
+      const WALL_THICKNESS = 0.5;
+      // Car outside the east wall and far from the outer face
+      const car = createCar({ x: half + 5, z: 0 });
+      car.velocity.x = 10; // moving away from arena
+      const result = car.bounceOffWalls(arenaSize, WALL_HEIGHT, WALL_THICKNESS);
+      expect(result.bounced).toBe(false);
+    });
+
+    it('should land on the wall top when above wall height and over the wall footprint', () => {
+      const arenaSize = 50;
+      const half = arenaSize / 2;
+      const WALL_HEIGHT = 2;
+      const WALL_THICKNESS = 0.5;
+      const car = createCar({ x: half, z: 0 }); // on the east wall's X centre
+      car.group.position.y = WALL_HEIGHT + car.groundY + 0.5; // above the wall
+      car.velocityY = -2; // descending
+      const result = car.bounceOffWalls(arenaSize, WALL_HEIGHT, WALL_THICKNESS);
+      expect(result.bounced).toBe(false);
+      // Should land on wall top
+      expect(car.group.position.y).toBeCloseTo(WALL_HEIGHT + car.groundY, 5);
+      expect(car.velocityY).toBe(0);
+    });
+
+    it('should not land on wall top when not over wall footprint', () => {
+      const arenaSize = 50;
+      const half = arenaSize / 2;
+      const WALL_HEIGHT = 2;
+      const WALL_THICKNESS = 0.5;
+      const car = createCar({ x: 10, z: 0 }); // far from any wall
+      car.group.position.y = WALL_HEIGHT + car.groundY + 0.5;
+      car.velocityY = -2;
+      const originalY = car.group.position.y;
+      const result = car.bounceOffWalls(arenaSize, WALL_HEIGHT, WALL_THICKNESS);
+      expect(result.bounced).toBe(false);
+      // Should NOT land — Y unchanged
+      expect(car.group.position.y).toBe(originalY);
     });
   });
 

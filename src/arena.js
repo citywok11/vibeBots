@@ -17,6 +17,9 @@ const FIGURE_COLORS = [
   0xff55cc, 0x00ccff, 0xffffff, 0xff8800,
 ];
 
+export const ARENA_WALL_HEIGHT = 2;
+export const ARENA_WALL_THICKNESS = 0.5;
+
 const CORNER_CONE_HEIGHT = 0.05;
 const CORNER_CONE_COLOR = 0xffaa00;
 const CORNER_CONE_INSET = 0.5;
@@ -117,8 +120,8 @@ export function createArena(size, { pitCutout } = {}) {
   group.add(floor);
 
   // Walls
-  const wallHeight = 2;
-  const wallThickness = 0.5;
+  const wallHeight = ARENA_WALL_HEIGHT;
+  const wallThickness = ARENA_WALL_THICKNESS;
 
   const wallConfigs = [
     { width: size, pos: [0, wallHeight / 2, -half], rotation: 0 },        // North

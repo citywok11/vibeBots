@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createArena } from './arena.js';
+import { createArena, ARENA_WALL_HEIGHT, ARENA_WALL_THICKNESS } from './arena.js';
 import { createCar, CAR_BODY_WIDTH, CAR_BODY_DEPTH } from './car.js';
 import { createRobot, ROBOT_BODY_WIDTH, ROBOT_BODY_DEPTH } from './robot.js';
 import {
@@ -187,10 +187,10 @@ function gameLoop(time) {
   }
 
   car.update(dt);
-  car.bounceOffWalls(ARENA_SIZE);
+  car.bounceOffWalls(ARENA_SIZE, ARENA_WALL_HEIGHT, ARENA_WALL_THICKNESS);
 
   robot.update(dt);
-  robot.bounceOffWalls(ARENA_SIZE);
+  robot.bounceOffWalls(ARENA_SIZE, ARENA_WALL_HEIGHT, ARENA_WALL_THICKNESS);
 
   // Apply flipper impulse once per flip activation when robot is in range
   if (car.flipperActive && !flipImpulseApplied) {
